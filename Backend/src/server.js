@@ -5,13 +5,17 @@ import express from 'express';
 import dotenv from 'dotenv'
 import connectDB from './config/db.js';
 import storeRoutes from './routes/storeRoutes.js';
+import productRoutes from './routes/productRoutes.js'
 
 dotenv.config()
 connectDB();
 
 const app = express()
 app.use(express.json());
+
 app.use('/api/stores', storeRoutes);
+app.use('/api/products', productRoutes)
+
 app.get('/api/health', (req, res) => {
   res.json({ message: 'FlowBox API is running smoothly.....'})
 })
