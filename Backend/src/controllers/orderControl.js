@@ -1,7 +1,7 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 
-export const createOrder = async (req, res) => {
+export const createOrder = async (req, res, next) => {
   try {
     const { productId, storeId, quantity } = req.body;
 
@@ -34,9 +34,7 @@ export const createOrder = async (req, res) => {
 
     res.status(201).json(newOrder);
   } catch (e) {
-    res
-      .status(500)
-      .json({ message: "Failed to process order", error: e.message });
+    next(e);
   }
 };
 

@@ -7,7 +7,7 @@ import connectDB from "./config/db.js";
 import storeRoutes from "./routes/storeRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
-
+import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 dotenv.config();
 connectDB();
 
@@ -20,6 +20,9 @@ app.use("/api/orders", orderRoutes);
 app.get("/api/health", (req, res) => {
   res.json({ message: "FlowBox API is running smoothly....." });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
