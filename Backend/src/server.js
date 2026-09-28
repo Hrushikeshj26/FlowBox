@@ -1,4 +1,5 @@
 import dns from "dns";
+import cors from "cors";
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 import express from "express";
@@ -12,6 +13,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.use("/api/stores", storeRoutes);
