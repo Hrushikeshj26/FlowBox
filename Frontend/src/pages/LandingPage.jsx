@@ -1,6 +1,9 @@
 import React from "react";
+import { useNavigate } from "react-router";
 
-export default function LandingPage({ onEnterApp }) {
+export default function LandingPage() {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-slate-50 text-gray-900 selection:bg-blue-200 overflow-x-hidden relative">
       {/* --- INLINE STYLES FOR MOVING OBJECTS --- */}
@@ -58,9 +61,10 @@ export default function LandingPage({ onEnterApp }) {
               Developers
             </a>
           </div>
+          {/* Updated routing action here */}
           <button
-            onClick={onEnterApp}
-            className="px-5 py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 rounded-full transition-colors shadow-sm"
+            onClick={() => navigate("/")}
+            className="px-5 py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 rounded-full transition-colors shadow-sm relative z-10 cursor-pointer"
           >
             Enter Dashboard
           </button>
@@ -92,8 +96,8 @@ export default function LandingPage({ onEnterApp }) {
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <button
-            onClick={onEnterApp}
-            className="px-8 py-4 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold text-lg transition-all transform hover:-translate-y-1 shadow-lg flex items-center justify-center gap-2"
+            onClick={() => navigate("/")}
+            className="px-8 py-4 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-semibold text-lg transition-all transform hover:-translate-y-1 shadow-lg flex items-center justify-center gap-2 cursor-pointer"
           >
             Start Building Free
             <svg
@@ -293,9 +297,10 @@ export default function LandingPage({ onEnterApp }) {
                   Community Support
                 </li>
               </ul>
+
               <button
-                onClick={onEnterApp}
-                className="w-full py-3 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-900 transition-colors font-medium"
+                onClick={() => navigate("/")}
+                className="w-full py-3 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-900 transition-colors font-medium cursor-pointer"
               >
                 Get Started Free
               </button>
@@ -361,9 +366,10 @@ export default function LandingPage({ onEnterApp }) {
                   Priority 24/7 Support
                 </li>
               </ul>
+
               <button
-                onClick={onEnterApp}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-medium text-white shadow-md shadow-indigo-500/20"
+                onClick={() => navigate("/")}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 transition-colors font-medium text-white shadow-md shadow-indigo-500/20 cursor-pointer"
               >
                 Upgrade to Pro
               </button>
@@ -381,9 +387,10 @@ export default function LandingPage({ onEnterApp }) {
           Join thousands of modern developers building the future of commerce on
           FlowBox.
         </p>
+
         <button
-          onClick={onEnterApp}
-          className="px-8 py-4 bg-gray-900 text-white hover:bg-gray-800 shadow-xl shadow-gray-300 rounded-xl font-bold text-lg transition-all"
+          onClick={() => navigate("/")}
+          className="px-8 py-4 bg-gray-900 text-white hover:bg-gray-800 shadow-xl shadow-gray-300 rounded-xl font-bold text-lg transition-all cursor-pointer"
         >
           Open Dashboard &rarr;
         </button>
