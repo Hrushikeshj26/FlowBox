@@ -1,42 +1,71 @@
-import React, { useState } from "react";
-import { Building2, MapPin, Box, Plus } from "lucide-react";
-
-const initialWarehouses = [
-  {
-    _id: "w1",
-    name: "Downtown Hub",
-    location: "New York, NY",
-    capacity: 5000,
-    currentLoad: 3450,
-  },
-  {
-    _id: "w2",
-    name: "Westside Depot",
-    location: "Los Angeles, CA",
-    capacity: 10000,
-    currentLoad: 8900,
-  },
-];
+import React, { useState, useEffect } from "react";
+import { Building2, MapPin, Box, Plus, Trash2 } from "lucide-react";
 
 export default function Warehouses() {
-  const [warehouses, setWarehouses] = useState(initialWarehouses);
+  const [warehouses, setWarehouses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     location: "",
     capacity: "",
   });
 
-  const handleAddWarehouse = (e) => {
-    e.preventDefault();
-    const newWarehouse = {
-      _id: `w_${Math.random().toString(36).substr(2, 9)}`,
-      name: formData.name,
-      location: formData.location,
-      capacity: Number(formData.capacity),
-      currentLoad: 0,
+  // FETCH WAREHOUSES ON MOUNT
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/stores");
+        if (response.ok) {
+          const data = await response.json();
+          setWarehouses(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch warehouses:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setWarehouses([newWarehouse, ...warehouses]);
-    setFormData({ name: "", location: "", capacity: "" });
+    fetchWarehouses();
+  }, []);
+
+  // CREATE WAREHOUSE
+  const handleAddWarehouse = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("http://localhost:5000/api/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          location: formData.location,
+          capacity: Number(formData.capacity),
+        }),
+      });
+
+      if (response.ok) {
+        const newWarehouse = await response.json();
+        setWarehouses([newWarehouse, ...warehouses]);
+        setFormData({ name: "", location: "", capacity: "" });
+      }
+    } catch (error) {
+      console.error("Failed to add warehouse:", error);
+    }
+  };
+
+  // DELETE WAREHOUSE
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this warehouse?"))
+      return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/stores/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setWarehouses(warehouses.filter((w) => w._id !== id));
+      }
+    } catch (error) {
+      console.error("Failed to delete warehouse:", error);
+    }
   };
 
   return (
@@ -50,6 +79,7 @@ export default function Warehouses() {
         </p>
       </div>
 
+      {/* FORM */}
       <div className="rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6 pb-4">
           <h3 className="text-lg font-semibold leading-none tracking-tight">
@@ -117,57 +147,74 @@ export default function Warehouses() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {warehouses.map((warehouse) => {
-          const loadPercentage = Math.round(
-            (warehouse.currentLoad / warehouse.capacity) * 100,
-          );
-          const isAtCapacity = loadPercentage > 85;
+      {/* GRID */}
+      {isLoading ? (
+        <p className="text-sm text-slate-500">Loading warehouses...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {warehouses.map((warehouse) => {
+            // Fallback to 0 if currentLoad isn't calculated by backend yet
+            const currentLoad = warehouse.currentLoad || 0;
+            const loadPercentage = Math.round(
+              (currentLoad / warehouse.capacity) * 100,
+            );
+            const isAtCapacity = loadPercentage > 85;
 
-          return (
-            <div
-              key={warehouse._id}
-              className="rounded-xl border border-slate-200 bg-white shadow-sm p-6"
-            >
-              <div className="flex justify-between items-start mb-6">
+            return (
+              <div
+                key={warehouse._id}
+                className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 flex flex-col justify-between"
+              >
                 <div>
-                  <h3 className="text-lg font-bold text-slate-950">
-                    {warehouse.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-1 text-sm text-slate-500">
-                    <MapPin className="h-3.5 w-3.5" /> {warehouse.location}
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-950">
+                        {warehouse.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 mt-1 text-sm text-slate-500">
+                        <MapPin className="h-3.5 w-3.5" /> {warehouse.location}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
+                        <Box className="h-4 w-4 text-slate-600" />
+                      </div>
+                      <button
+                        onClick={() => handleDelete(warehouse._id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-medium text-slate-600">
+                        Storage Usage
+                      </span>
+                      <span
+                        className={`font-semibold ${isAtCapacity ? "text-slate-900" : "text-indigo-600"}`}
+                      >
+                        {loadPercentage}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${isAtCapacity ? "bg-slate-800" : "bg-indigo-600"}`}
+                        style={{ width: `${loadPercentage}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 text-right">
+                      {currentLoad} / {warehouse.capacity} items
+                    </p>
                   </div>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
-                  <Box className="h-4 w-4 text-slate-600" />
-                </div>
               </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium text-slate-600">
-                    Storage Usage
-                  </span>
-                  <span
-                    className={`font-semibold ${isAtCapacity ? "text-slate-900" : "text-indigo-600"}`}
-                  >
-                    {loadPercentage}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-full transition-all ${isAtCapacity ? "bg-slate-800" : "bg-indigo-600"}`}
-                    style={{ width: `${loadPercentage}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-slate-400 mt-2 text-right">
-                  {warehouse.currentLoad} / {warehouse.capacity} items
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
