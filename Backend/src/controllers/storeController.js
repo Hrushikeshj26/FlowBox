@@ -2,9 +2,9 @@ import Store from "../models/Store.js";
 
 export const createStore = async (req, res) => {
   try {
-    const { name, location } = req.body;
+    const { name, location, capacity } = req.body;
 
-    if (!name || !location) {
+    if (!name || !location || !capacity) {
       return res
         .status(400)
         .json({ message: "Please provide both a name and a location" });
@@ -13,6 +13,8 @@ export const createStore = async (req, res) => {
     const newStore = await Store.create({
       name,
       location,
+      capacity,
+      currentLoad: 0,
     });
     res.status(201).json(newStore);
   } catch (e) {

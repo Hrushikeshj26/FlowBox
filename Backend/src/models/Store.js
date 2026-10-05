@@ -1,19 +1,29 @@
 import mongoose from "mongoose";
 
-const storeSchema = new mongoose.Schema(
+const storeSchema = mongoose.Schema(
   {
     name: {
       type: String,
-      require: true,
-      trime: true
+      required: [true, "Please add a warehouse name"],
     },
     location: {
       type: String,
-      require: true
+      required: [true, "Please add a location"],
+    },
+    capacity: {
+      type: Number,
+      required: [true, "Please add the maximum capacity"],
+      default: 0,
+    },
+    currentLoad: {
+      type: Number,
+      default: 0,
     },
   },
-  { timestamps: true }
-)
+  {
+    timestamps: true,
+  },
+);
 
-const Store = mongoose.model('Store', storeSchema);
+const Store = mongoose.model("Store", storeSchema);
 export default Store;
