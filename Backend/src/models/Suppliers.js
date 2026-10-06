@@ -5,7 +5,7 @@ const suppliersSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  email: {
+  contact: {
     type: String,
     required: true,
   },
@@ -14,11 +14,11 @@ const suppliersSchema = mongoose.Schema({
     default: "others",
   },
   phone: {
-    type: Number,
+    type: String,
     default: 0,
   },
 });
 
-const Suppliers = mongoose.models("Suppliers", suppliersSchema);
+const Suppliers = mongoose.model("Suppliers", suppliersSchema);
 
 export default Suppliers;

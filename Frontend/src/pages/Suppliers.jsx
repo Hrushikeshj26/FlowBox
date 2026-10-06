@@ -1,25 +1,9 @@
-import React, { useState } from "react";
-import { Truck, Mail, Phone, Building, Plus } from "lucide-react";
-
-const initialSuppliers = [
-  {
-    _id: "sup1",
-    name: "TechSource Electronics",
-    contact: "sarah@techsource.com",
-    phone: "+1 (555) 123-4567",
-    category: "Electronics",
-  },
-  {
-    _id: "sup2",
-    name: "Global Office Supplies",
-    contact: "orders@globaloffice.com",
-    phone: "+1 (555) 987-6543",
-    category: "Stationery",
-  },
-];
+import React, { useState, useEffect } from "react";
+import { Truck, Mail, Phone, Building, Plus, Trash2 } from "lucide-react";
 
 export default function Suppliers() {
-  const [suppliers, setSuppliers] = useState(initialSuppliers);
+  const [suppliers, setSuppliers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     contact: "",
@@ -27,14 +11,69 @@ export default function Suppliers() {
     category: "",
   });
 
-  const handleAddSupplier = (e) => {
-    e.preventDefault();
-    const newSupplier = {
-      _id: `sup_${Math.random().toString(36).substr(2, 9)}`,
-      ...formData,
+  // 1. FETCH SUPPLIERS ON MOUNT
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/suppliers");
+        if (response.ok) {
+          const data = await response.json();
+          setSuppliers(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch suppliers:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setSuppliers([newSupplier, ...suppliers]);
-    setFormData({ name: "", contact: "", phone: "", category: "" });
+    fetchSuppliers();
+  }, []);
+
+  // 2. SEND NEW SUPPLIER TO BACKEND
+  const handleAddSupplier = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch("http://localhost:5000/api/suppliers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        // Clear form instantly
+        setFormData({ name: "", contact: "", phone: "", category: "" });
+
+        // Re-fetch list to guarantee we have the real MongoDB _ids
+        const freshRes = await fetch("http://localhost:5000/api/suppliers");
+        setSuppliers(await freshRes.json());
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to add supplier: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Error creating supplier:", error);
+    }
+  };
+
+  // 3. DELETE SUPPLIER FROM BACKEND
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this supplier?"))
+      return;
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/suppliers/${id}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (response.ok) {
+        setSuppliers(suppliers.filter((s) => s._id !== id));
+      } else {
+        alert("Failed to delete supplier.");
+      }
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+    }
   };
 
   return (
@@ -48,6 +87,7 @@ export default function Suppliers() {
         </p>
       </div>
 
+      {/* FORM */}
       <div className="rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm">
         <div className="flex flex-col space-y-1.5 p-6 pb-4">
           <h3 className="text-lg font-semibold leading-none tracking-tight">
@@ -131,6 +171,7 @@ export default function Suppliers() {
         </div>
       </div>
 
+      {/* TABLE */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -144,37 +185,63 @@ export default function Suppliers() {
                 </th>
                 <th className="h-10 px-4 font-medium text-slate-500">Email</th>
                 <th className="h-10 px-4 font-medium text-slate-500">Phone</th>
+                <th className="h-10 px-4 font-medium text-slate-500 text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {suppliers.map((supplier) => (
-                <tr
-                  key={supplier._id}
-                  className="hover:bg-slate-50/50 transition-colors"
-                >
-                  <td className="p-4 font-medium text-slate-900 flex items-center gap-2">
-                    <Building className="h-4 w-4 text-slate-400" />{" "}
-                    {supplier.name}
-                  </td>
-                  <td className="p-4">
-                    <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
-                      {supplier.category}
-                    </span>
-                  </td>
-                  <td className="p-4 text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-3.5 w-3.5 text-slate-400" />{" "}
-                      {supplier.contact}
-                    </div>
-                  </td>
-                  <td className="p-4 text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-3.5 w-3.5 text-slate-400" />{" "}
-                      {supplier.phone}
-                    </div>
+              {isLoading ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-slate-500">
+                    Loading suppliers...
                   </td>
                 </tr>
-              ))}
+              ) : suppliers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-slate-500">
+                    No suppliers found.
+                  </td>
+                </tr>
+              ) : (
+                suppliers.map((supplier) => (
+                  <tr
+                    key={supplier._id}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
+                    <td className="p-4 font-medium text-slate-900 flex items-center gap-2">
+                      <Building className="h-4 w-4 text-slate-400" />{" "}
+                      {supplier.name}
+                    </td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
+                        {supplier.category}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5 text-slate-400" />{" "}
+                        {supplier.contact}
+                      </div>
+                    </td>
+                    <td className="p-4 text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-slate-400" />{" "}
+                        {supplier.phone}
+                      </div>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDelete(supplier._id)}
+                        className="inline-flex p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                        title="Delete Supplier"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
