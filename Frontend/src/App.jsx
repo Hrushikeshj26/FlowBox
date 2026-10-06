@@ -1,27 +1,32 @@
-import { BrowserRouter, Routes, Route } from "react-router"; // (or 'react-router-dom' depending on your version)
+import { Routes, Route } from "react-router-dom";
+
 import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
+import Auth from "./pages/Auth";
 import Inventory from "./pages/Inventory";
 import Orders from "./pages/Orders";
 import Dashboard from "./pages/Dashboard";
 import Warehouses from "./pages/Warehouses";
 import Suppliers from "./pages/Suppliers";
+import Transfers from "./pages/Transfers";
 
 const App = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/landing" element={<LandingPage />} />
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/landing" element={<LandingPage />} />
+      <Route path="/auth" element={<Auth />} />
 
-        <Route path="/" element={<Home />}>
-          <Route index element={<Dashboard />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="suppliers" element={<Suppliers />} />
-          <Route path="warehouses" element={<Warehouses />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+      {/* Private App Routes */}
+      <Route path="/" element={<Home />}>
+        <Route index element={<Dashboard />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        <Route path="warehouses" element={<Warehouses />} />
+        <Route path="transfers" element={<Transfers />} />
+      </Route>
+    </Routes>
   );
 };
 

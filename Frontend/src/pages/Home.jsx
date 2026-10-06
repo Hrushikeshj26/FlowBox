@@ -1,20 +1,14 @@
 import React from "react";
-import { Outlet } from "react-router"; // Imports the router placeholder
-import Sidebar from "../components/Sidebar";
+import { Outlet } from "react-router-dom"; // 1. Import Outlet
+import Sidebar from "../components/Sidebar"; // Make sure this path is correct!
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="flex h-screen bg-slate-100 w-full">
       <Sidebar />
 
-      {/* Main Content Area */}
-      <main className="flex-1 ml-64 p-8">
-        <div className="max-w-5xl mx-auto">
-          {/* 
-            The Outlet is the magic window. 
-            When the URL is '/', React Router injects <Inventory /> here.
-            When the URL is '/orders', it swaps it for <Orders /> automatically.
-          */}
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-7/8 mx-auto">
           <Outlet />
         </div>
       </main>

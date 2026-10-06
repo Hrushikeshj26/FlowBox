@@ -1,67 +1,77 @@
 import React from "react";
-import { NavLink } from "react-router";
+import { NavLink } from "react-router-dom";
 import {
-  Package,
-  ShoppingCart,
-  Warehouse,
   LayoutDashboard,
+  PackageSearch,
+  Building2,
   Truck,
-  Settings,
+  ShoppingCart,
+  ArrowRightLeft,
+  WindArrowUp,
 } from "lucide-react";
 
+import { buttonVariants } from "@/components/ui/button";
+
 export default function Sidebar() {
-  const menuItems = [
-    { id: "dashboard", path: "/", label: "Dashboard", icon: LayoutDashboard },
-    { id: "inventory", path: "/inventory", label: "Inventory", icon: Package },
-    { id: "orders", path: "/orders", label: "Orders", icon: ShoppingCart },
-    {
-      id: "warehouses",
-      path: "/warehouses",
-      label: "Warehouses",
-      icon: Warehouse,
-    },
-    { id: "suppliers", path: "/suppliers", label: "Suppliers", icon: Truck },
+  // 2. Add the Transfers object to the array
+  const navItems = [
+    { name: "Dashboard", path: "/", icon: LayoutDashboard },
+    { name: "Inventory", path: "/inventory", icon: PackageSearch },
+    { name: "Transfers", path: "/transfers", icon: ArrowRightLeft },
+    { name: "Orders", path: "/orders", icon: ShoppingCart },
+    { name: "Warehouses", path: "/warehouses", icon: Building2 },
+    { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
 
   return (
-    <aside className="w-64 h-screen bg-white border-r border-slate-200 flex flex-col fixed left-0 top-0">
+    <aside className="w-64 border-r border-slate-200 bg-white h-screen flex flex-col sticky top-0">
       <div className="h-16 flex items-center px-6 border-b border-slate-200">
-        <div className="w-8 h-8 bg-indigo-600 text-white rounded-md flex items-center justify-center font-bold mr-3 shadow-sm">
-          F
+        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-indigo-600 mr-3">
+          <WindArrowUp className="h-5 w-5 text-white" />
         </div>
-        <span className="text-xl font-bold tracking-tight text-slate-950">
+        <span className="font-bold text-xl tracking-tight text-slate-950">
           FlowBox
         </span>
       </div>
 
       <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.id}
-              to={item.path}
-              end={item.path === "/"}
-              className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all text-sm font-medium ${
-                  isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`
-              }
-            >
-              <Icon className="w-4 h-4" />
-              {item.label}
-            </NavLink>
-          );
-        })}
+        <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+          Main Menu
+        </p>
+
+        {navItems.map((item) => (
+          <NavLink
+            key={item.name}
+            to={item.path}
+            className={({ isActive }) =>
+              buttonVariants({
+                variant: isActive ? "secondary" : "ghost",
+              }) +
+              ` w-full justify-start gap-3 text-sm ${
+                isActive
+                  ? "bg-slate-100 font-semibold text-indigo-600"
+                  : "text-slate-600"
+              }`
+            }
+          >
+            <item.icon className="h-4 w-4" />
+            {item.name}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="p-4 border-t border-slate-200">
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-md transition-colors text-sm font-medium">
-          <Settings className="w-4 h-4" />
-          Settings
-        </button>
+        <div className="flex items-center gap-3 px-2 py-2">
+          <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
+            HJ
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-slate-900">
+              Admin User
+            </span>
+            <span className="text-xs text-slate-500">hrushij.dev</span>
+          </div>
+        </div>
       </div>
     </aside>
   );

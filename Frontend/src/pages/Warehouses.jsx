@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { Building2, MapPin, Box, Plus, Trash2 } from "lucide-react";
+import { Building2, MapPin, Plus, Trash2, Box } from "lucide-react";
+
+// Shadcn Components
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Warehouses() {
-  const [warehouses, setWarehouses] = useState([]);
+  const [stores, setStores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -10,26 +24,22 @@ export default function Warehouses() {
     capacity: "",
   });
 
-  // FETCH WAREHOUSES ON MOUNT
+  const fetchStores = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/stores");
+      if (response.ok) setStores(await response.json());
+    } catch (error) {
+      console.error("Failed to fetch stores:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchWarehouses = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/stores");
-        if (response.ok) {
-          const data = await response.json();
-          setWarehouses(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch warehouses:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchWarehouses();
+    fetchStores();
   }, []);
 
-  // CREATE WAREHOUSE
-  const handleAddWarehouse = async (e) => {
+  const handleAddStore = async (e) => {
     e.preventDefault();
     try {
       const response = await fetch("http://localhost:5000/api/stores", {
@@ -43,178 +53,191 @@ export default function Warehouses() {
       });
 
       if (response.ok) {
-        const newWarehouse = await response.json();
-        setWarehouses([newWarehouse, ...warehouses]);
         setFormData({ name: "", location: "", capacity: "" });
+        await fetchStores();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to create warehouse: ${errorData.message}`);
       }
     } catch (error) {
-      console.error("Failed to add warehouse:", error);
+      console.error("Error creating warehouse:", error);
     }
   };
 
-  // DELETE WAREHOUSE
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this warehouse?"))
+    if (
+      !window.confirm(
+        "Are you sure? Ensure no products are currently assigned to this warehouse!",
+      )
+    )
       return;
     try {
       const response = await fetch(`http://localhost:5000/api/stores/${id}`, {
         method: "DELETE",
       });
-      if (response.ok) {
-        setWarehouses(warehouses.filter((w) => w._id !== id));
-      }
+      if (response.ok) await fetchStores();
     } catch (error) {
-      console.error("Failed to delete warehouse:", error);
+      console.error("Error deleting warehouse:", error);
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 flex items-center gap-2">
           <Building2 className="h-7 w-7" /> Warehouses
         </h1>
         <p className="text-sm text-slate-500">
-          Manage physical storage locations and capacity.
+          Manage storage locations and capacity limits.
         </p>
       </div>
 
-      {/* FORM */}
-      <div className="rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm">
-        <div className="flex flex-col space-y-1.5 p-6 pb-4">
-          <h3 className="text-lg font-semibold leading-none tracking-tight">
-            Register Location
-          </h3>
-        </div>
-        <div className="p-6 pt-0">
+      {/* ADD WAREHOUSE CARD */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Add Warehouse</CardTitle>
+        </CardHeader>
+        <CardContent>
           <form
-            onSubmit={handleAddWarehouse}
+            onSubmit={handleAddStore}
             className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
           >
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none text-slate-700">
-                Facility Name
-              </label>
-              <input
+              <label className="text-sm font-medium">Warehouse Name</label>
+              <Input
                 required
-                type="text"
-                placeholder="North Hub"
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                placeholder="Main Facility"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
               />
             </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium leading-none text-slate-700">
-                Address / City
-              </label>
-              <input
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Location</label>
+              <Input
                 required
-                type="text"
-                placeholder="Chicago, IL"
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                placeholder="123 Industrial Pkwy, City"
                 value={formData.location}
                 onChange={(e) =>
                   setFormData({ ...formData, location: e.target.value })
                 }
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none text-slate-700">
-                Max Capacity
+              <label className="text-sm font-medium">
+                Max Capacity (Units)
               </label>
               <div className="flex gap-2">
-                <input
+                <Input
                   required
                   type="number"
-                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  min="1"
+                  placeholder="5000"
                   value={formData.capacity}
                   onChange={(e) =>
                     setFormData({ ...formData, capacity: e.target.value })
                   }
                 />
-                <button
+                <Button
                   type="submit"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  size="icon"
+                  className="shrink-0 bg-indigo-600 hover:bg-indigo-700"
                 >
                   <Plus className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </div>
           </form>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* GRID */}
-      {isLoading ? (
-        <p className="text-sm text-slate-500">Loading warehouses...</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {warehouses.map((warehouse) => {
-            // Fallback to 0 if currentLoad isn't calculated by backend yet
-            const currentLoad = warehouse.currentLoad || 0;
-            const loadPercentage = Math.round(
-              (currentLoad / warehouse.capacity) * 100,
-            );
-            const isAtCapacity = loadPercentage > 85;
+      {/* WAREHOUSE TABLE CARD */}
+      <Card className="overflow-hidden p-2">
+        <Table>
+          <TableHeader className="bg-slate-50/50">
+            <TableRow>
+              <TableHead className="w-[250px]">Facility Name</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Current Load</TableHead>
+              <TableHead>Max Capacity</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="h-24 text-center text-slate-500"
+                >
+                  Loading warehouses...
+                </TableCell>
+              </TableRow>
+            ) : stores.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="h-24 text-center text-slate-500"
+                >
+                  No warehouses found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              stores.map((store) => {
+                // Calculate capacity percentage to warn if getting full
+                const loadPercentage =
+                  store.capacity > 0
+                    ? (store.currentLoad / store.capacity) * 100
+                    : 0;
+                const isNearingCapacity = loadPercentage >= 85;
 
-            return (
-              <div
-                key={warehouse._id}
-                className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-950">
-                        {warehouse.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 mt-1 text-sm text-slate-500">
-                        <MapPin className="h-3.5 w-3.5" /> {warehouse.location}
+                return (
+                  <TableRow key={store._id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-slate-400" />{" "}
+                        {store.name}
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50">
-                        <Box className="h-4 w-4 text-slate-600" />
+                    </TableCell>
+                    <TableCell className="text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400" />{" "}
+                        {store.location}
                       </div>
-                      <button
-                        onClick={() => handleDelete(warehouse._id)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={`font-medium ${isNearingCapacity ? "bg-amber-100 text-amber-800" : ""}`}
+                      >
+                        <Box className="h-3 w-3 mr-1" />
+                        {store.currentLoad} units
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-slate-600 font-medium">
+                      {store.capacity} units
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(store._id)}
+                        className="text-slate-400 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-medium text-slate-600">
-                        Storage Usage
-                      </span>
-                      <span
-                        className={`font-semibold ${isAtCapacity ? "text-slate-900" : "text-indigo-600"}`}
-                      >
-                        {loadPercentage}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all ${isAtCapacity ? "bg-slate-800" : "bg-indigo-600"}`}
-                        style={{ width: `${loadPercentage}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2 text-right">
-                      {currentLoad} / {warehouse.capacity} items
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
