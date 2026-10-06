@@ -6,7 +6,8 @@ import connectDB from "./config/db.js";
 import storeRoutes from "./routes/storeRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
-import suppliersRoute from "./routes/suppliersRoute.js";
+import suppliersRoutes from "./routes/suppliersRoutes.js";
+import inventoryRoutes from "./routes/inventoryRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -20,7 +21,8 @@ app.use(express.json());
 app.use("/api/stores", storeRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/suppliers", suppliersRoute);
+app.use("/api/suppliers", suppliersRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "FlowBox API is running smoothly....." });
