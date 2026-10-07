@@ -2,71 +2,46 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Store from "../models/Store.js"; // Assuming your warehouse model is Store.js
 
-// CREATE ORDER & DEDUCT STOCK
-export const createOrder = async (req, res, next) => {
+// GET ALL ORDERS (Populated with Product details)
+export const getOrders = async (req, res) => {
   try {
-    const { customerName, productId, quantity } = req.body;
+    const orders = await Order.find().populate("productId");
+    res.status(200).json(orders);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch orders", error });
+  }
+};
 
-    if (!customerName || !productId || !quantity) {
-      return res.status(400).json({
-        message: "Please provide customer name, product, and quantity.",
-      });
-    }
+// POST /api/orders
+export const createOrder = async (req, res) => {
+  const { customerName, customerEmail, customerPhone, productId, quantity } =
+    req.body;
 
-    // 1. Find the product to check stock and get the price
+  try {
     const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found." });
-    }
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (product.stockCount < quantity)
+      return res.status(400).json({ message: "Insufficient stock" });
 
-    // 2. Check if we have enough stock
-    if (product.stockCount < quantity) {
-      return res.status(400).json({
-        message: `Insufficient stock. Only ${product.stockCount} left.`,
-      });
-    }
-
-    // 3. Calculate total price on the backend (prevents frontend spoofing)
     const totalPrice = product.price * quantity;
 
-    // 4. Create the Order
-    const newOrder = await Order.create({
+    const newOrder = new Order({
       customerName,
-      product: productId,
+      customerEmail,
+      customerPhone,
+      productId,
       quantity,
       totalPrice,
     });
 
-    // 5. Deduct stock from the Product
-    await Product.findByIdAndUpdate(productId, {
-      $inc: { stockCount: -quantity },
-    });
+    await newOrder.save();
 
-    // 6. Deduct load from the Warehouse
-    if (product.storeId) {
-      await Store.findByIdAndUpdate(product.storeId, {
-        $inc: { currentLoad: -quantity },
-      });
-    }
+    product.stockCount -= quantity;
+    await product.save();
 
-    res
-      .status(201)
-      .json({ message: "Order placed successfully", data: newOrder });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// GET ALL ORDERS (Populated with Product details)
-export const getOrders = async (req, res, next) => {
-  try {
-    const orders = await Order.find({})
-      .populate("product", "name price") // Pulls the product name and price into the order response
-      .sort({ createdAt: -1 });
-
-    res.status(200).json(orders);
-  } catch (err) {
-    next(err);
+    res.status(201).json(newOrder);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to create order", error });
   }
 };
 

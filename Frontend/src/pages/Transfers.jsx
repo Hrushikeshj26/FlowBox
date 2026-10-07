@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowRightLeft, Package, Building2, AlertCircle } from "lucide-react";
 
 // Shadcn Components
@@ -45,8 +45,14 @@ export default function Transfers() {
         fetch("http://localhost:5000/api/products"),
         fetch("http://localhost:5000/api/stores"),
       ]);
-      if (productsRes.ok) setProducts(await productsRes.json());
-      if (storesRes.ok) setStores(await storesRes.json());
+
+      if (productsRes.ok) {
+        setProducts(await productsRes.json());
+      }
+
+      if (storesRes.ok) {
+        setStores(await storesRes.json());
+      }
     } catch (error) {
       console.error("Failed to fetch:", error);
     } finally {
@@ -61,19 +67,29 @@ export default function Transfers() {
   const handleTransferSubmit = async (e) => {
     e.preventDefault();
 
-    const selectedProduct = products.find((p) => p._id === formData.productId);
+    const selectedProduct = products.find(
+      (product) => product._id === formData.productId,
+    );
+
     const sourceStoreId =
       selectedProduct?.storeId?._id || selectedProduct?.storeId;
+
+    if (!sourceStoreId) {
+      alert("The selected product has no source location.");
+      return;
+    }
 
     try {
       const response = await fetch(
         "http://localhost:5000/api/inventory/transfer",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             productId: formData.productId,
-            sourceStoreId: sourceStoreId,
+            sourceStoreId,
             targetStoreId: formData.targetStoreId,
             quantity: Number(formData.quantity),
           }),
@@ -81,8 +97,14 @@ export default function Transfers() {
       );
 
       if (response.ok) {
-        setFormData({ productId: "", targetStoreId: "", quantity: "" });
+        setFormData({
+          productId: "",
+          targetStoreId: "",
+          quantity: "",
+        });
+
         await fetchData();
+
         alert("Transfer successful!");
       } else {
         const errorData = await response.json();
@@ -90,54 +112,81 @@ export default function Transfers() {
       }
     } catch (error) {
       console.error("Error transferring stock:", error);
+      alert("Something went wrong while transferring stock.");
     }
   };
 
-  // Derived state for the currently selected product
-  const selectedProduct = products.find((p) => p._id === formData.productId);
+  // Currently selected product
+  const selectedProduct = products.find(
+    (product) => product._id === formData.productId,
+  );
+
   const currentStoreId =
     selectedProduct?.storeId?._id || selectedProduct?.storeId;
+
   const currentStoreName =
-    stores.find((s) => s._id === currentStoreId)?.name || "Unknown";
+    stores.find((store) => store._id === currentStoreId)?.name ||
+    "Unknown location";
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
+      {/* ───────────────── HEADER ───────────────── */}
+
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-950 flex items-center gap-2">
-          <ArrowRightLeft className="h-7 w-7" /> Stock Transfers
-        </h1>
-        <p className="text-sm text-slate-500">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ArrowRightLeft className="h-5 w-5" />
+          </div>
+
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Stock Transfers
+          </h1>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
           Move inventory between your warehouses and facilities.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* TRANSFER FORM CARD */}
+      {/* ───────────────── MAIN CONTENT ───────────────── */}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* ───────────────── TRANSFER FORM ───────────────── */}
+
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Execute Transfer</CardTitle>
-            <CardDescription>Select a product to move stock.</CardDescription>
+            <CardTitle className="text-lg">Execute Transfer</CardTitle>
+
+            <CardDescription>
+              Select a product and destination to move stock.
+            </CardDescription>
           </CardHeader>
+
           <CardContent>
-            <form onSubmit={handleTransferSubmit} className="space-y-4">
+            <form onSubmit={handleTransferSubmit} className="space-y-5">
+              {/* Product */}
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Select Product</label>
+                <label className="text-sm font-medium text-foreground">
+                  Select Product
+                </label>
+
                 <Select
                   required
                   value={formData.productId}
-                  onValueChange={(val) =>
+                  onValueChange={(value) =>
                     setFormData({
                       ...formData,
-                      productId: val,
+                      productId: value,
                       quantity: "",
                       targetStoreId: "",
                     })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full bg-background">
                     <SelectValue placeholder="Choose product..." />
                   </SelectTrigger>
+
                   <SelectContent>
                     {products.map((product) => (
                       <SelectItem
@@ -152,42 +201,60 @@ export default function Transfers() {
                 </Select>
               </div>
 
-              {/* Dynamic Info Box: Only shows when a product is selected */}
+              {/* Selected Product Information */}
+
               {selectedProduct && (
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Current Location:</span>
-                    <span className="font-medium text-slate-900">
+                <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      Current Location
+                    </span>
+
+                    <span className="text-right text-sm font-medium text-foreground">
                       {currentStoreName}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Available Stock:</span>
-                    <Badge variant="secondary">
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      Available Stock
+                    </span>
+
+                    <Badge
+                      variant="secondary"
+                      className="bg-primary/10 text-primary"
+                    >
                       {selectedProduct.stockCount} units
                     </Badge>
                   </div>
                 </div>
               )}
 
+              {/* Destination */}
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">
+                <label className="text-sm font-medium text-foreground">
                   Destination Warehouse
                 </label>
+
                 <Select
                   required
                   disabled={!formData.productId}
                   value={formData.targetStoreId}
-                  onValueChange={(val) =>
-                    setFormData({ ...formData, targetStoreId: val })
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      targetStoreId: value,
+                    })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full bg-background">
                     <SelectValue placeholder="Select destination..." />
                   </SelectTrigger>
+
                   <SelectContent>
                     {stores
-                      .filter((store) => store._id !== currentStoreId) // Hide the warehouse it is currently in
+                      .filter((store) => store._id !== currentStoreId)
                       .map((store) => (
                         <SelectItem key={store._id} value={store._id}>
                           {store.name}
@@ -197,82 +264,175 @@ export default function Transfers() {
                 </Select>
               </div>
 
+              {/* Quantity */}
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Quantity to Move</label>
+                <label className="text-sm font-medium text-foreground">
+                  Quantity to Move
+                </label>
+
                 <Input
                   required
                   disabled={!formData.productId}
                   type="number"
                   min="1"
                   max={selectedProduct?.stockCount || 1}
-                  placeholder="0"
+                  placeholder="Enter quantity"
                   value={formData.quantity}
                   onChange={(e) =>
-                    setFormData({ ...formData, quantity: e.target.value })
+                    setFormData({
+                      ...formData,
+                      quantity: e.target.value,
+                    })
                   }
+                  className="bg-background"
                 />
+
+                {selectedProduct && (
+                  <p className="text-xs text-muted-foreground">
+                    Maximum available: {selectedProduct.stockCount} units
+                  </p>
+                )}
               </div>
+
+              {/* Warning */}
+
+              {selectedProduct && selectedProduct.stockCount <= 5 && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    This product is running low on stock. Consider reviewing
+                    your inventory before transferring.
+                  </p>
+                </div>
+              )}
+
+              {/* Submit */}
 
               <Button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 mt-2"
+                disabled={
+                  !formData.productId ||
+                  !formData.targetStoreId ||
+                  !formData.quantity ||
+                  Number(formData.quantity) <= 0
+                }
+                className="mt-2 w-full"
               >
-                <ArrowRightLeft className="mr-2 h-4 w-4" /> Move Stock
+                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                Move Stock
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        {/* QUICK REFERENCE STOCK TABLE */}
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader>
-            <CardTitle>Current Stock Directory</CardTitle>
+        {/* ───────────────── STOCK DIRECTORY ───────────────── */}
+
+        <Card className="overflow-hidden lg:col-span-2">
+          <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
+            <CardTitle className="text-lg">Current Stock Directory</CardTitle>
+
             <CardDescription>
               Live view of all inventory locations.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="p-0">
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead className="text-right">Stock</TableHead>
+              {/* Different table header color */}
+
+              <TableHeader>
+                <TableRow className="border-b border-border hover:bg-transparent">
+                  <TableHead className="h-11 font-semibold text-foreground">
+                    Product
+                  </TableHead>
+
+                  <TableHead className="h-11 font-semibold text-foreground">
+                    Location
+                  </TableHead>
+
+                  <TableHead className="h-11 text-right font-semibold text-foreground">
+                    Stock
+                  </TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell
                       colSpan={3}
-                      className="h-24 text-center text-slate-500"
+                      className="h-24 text-center text-muted-foreground"
                     >
-                      Loading...
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        Loading inventory...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : products.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={3}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      No products found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   products.map((product) => {
                     const storeId = product.storeId?._id || product.storeId;
+
                     const storeName =
-                      stores.find((s) => s._id === storeId)?.name ||
+                      stores.find((store) => store._id === storeId)?.name ||
                       "Unassigned";
 
+                    const isLowStock = product.stockCount <= 5;
+
                     return (
-                      <TableRow key={product._id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-slate-400" />{" "}
-                            {product.name}
+                      <TableRow
+                        key={product._id}
+                        className="transition-colors hover:bg-muted/40"
+                      >
+                        {/* Product */}
+
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                              <Package className="h-4 w-4" />
+                            </div>
+
+                            <span className="font-medium text-foreground">
+                              {product.name}
+                            </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-600">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="h-3.5 w-3.5 text-slate-400" />{" "}
+
+                        {/* Location */}
+
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Building2 className="h-4 w-4 text-muted-foreground/70" />
+
                             {storeName}
                           </div>
                         </TableCell>
+
+                        {/* Stock */}
+
                         <TableCell className="text-right">
-                          <Badge variant="outline">{product.stockCount}</Badge>
+                          <Badge
+                            variant="outline"
+                            className={
+                              isLowStock
+                                ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "border-border bg-muted/50 text-foreground"
+                            }
+                          >
+                            {product.stockCount}
+                            {isLowStock && " Low"}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     );

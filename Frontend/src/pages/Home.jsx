@@ -1,16 +1,13 @@
 import React from "react";
-import { Outlet } from "react-router-dom"; // 1. Import Outlet
-import Sidebar from "../components/Sidebar"; // Make sure this path is correct!
+import { Outlet } from "react-router-dom";
+import Sidebar from "../components/Sidebar";
 
 export default function Home() {
   return (
-    <div className="flex h-screen bg-slate-100 w-full">
+    <div className="flex min-h-screen w-full bg-background dark:bg-background transition-colors duration-300">
       <Sidebar />
-
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-7/8 mx-auto">
-          <Outlet />
-        </div>
+      <main className="flex-1 overflow-x-hidden p-4 md:p-6 lg:p-8">
+        <Outlet />
       </main>
     </div>
   );

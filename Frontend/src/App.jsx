@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Warehouses from "./pages/Warehouses";
 import Suppliers from "./pages/Suppliers";
 import Transfers from "./pages/Transfers";
+import Customers from "./pages/Customers";
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
         <Route path="suppliers" element={<Suppliers />} />
         <Route path="warehouses" element={<Warehouses />} />
         <Route path="transfers" element={<Transfers />} />
+        <Route path="Customers" element={<Customers />} />
       </Route>
     </Routes>
   );
