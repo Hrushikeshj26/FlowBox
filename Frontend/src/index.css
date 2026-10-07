@@ -1,39 +1,151 @@
 @import "tailwindcss";
 
-/* If Vite complains about this plugin later, you can safely remove this line */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @plugin "tailwindcss-animate";
 
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #020617;
-  --color-card: #ffffff;
-  --color-card-foreground: #020617;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #020617;
-  --color-primary: #4f46e5;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-  --color-muted: #f8fafc;
-  --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #4f46e5;
-  --radius-sm: 0.3rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  :root {
+    /* ─────────────────────────────────────────
+       LIGHT MODE (Vibrant Indigo & Clean White)
+       ───────────────────────────────────────── */
+
+    --background: #f8fafc; /* Soft slate-50 background */
+    --foreground: #0f172a; /* Slate-900 text */
+
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+
+    /* Punchy Indigo Primary */
+    --primary: #4f46e5; /* Indigo-600 */
+    --primary-foreground: #ffffff;
+
+    /* Soft Indigo/Blue for secondary elements */
+    --secondary: #e0e7ff; /* Indigo-100 */
+    --secondary-foreground: #3730a3; /* Indigo-800 */
+
+    /* Grays for empty states/borders */
+    --muted: #f1f5f9; /* Slate-100 */
+    --muted-foreground: #64748b; /* Slate-500 */
+
+    /* Violet accents for hover states */
+    --accent: #f3e8ff; /* Purple-100 */
+    --accent-foreground: #6b21a8; /* Purple-800 */
+
+    /* Vibrant Danger Red */
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+
+    /* Clean Borders */
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+
+    /* Focus Rings */
+    --ring: #6366f1; /* Indigo-500 */
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* ─────────────────────────────────────────
+       DARK MODE (Midnight Blue & Neon Indigo)
+       ───────────────────────────────────────── */
+
+    /* Deep rich blue/black */
+    --background: #020617; /* Slate-950 */
+    --foreground: #f8fafc; /* Slate-50 */
+
+    /* Slightly lighter blue for cards */
+    --card: #0f172a; /* Slate-900 */
+    --card-foreground: #f8fafc;
+
+    --popover: #0f172a;
+    --popover-foreground: #f8fafc;
+
+    /* Bright Neon Indigo */
+    --primary: #818cf8; /* Indigo-400 */
+    --primary-foreground: #1e1b4b; /* Indigo-950 (Dark text on light button) */
+
+    /* Darker Indigo for secondary backgrounds */
+    --secondary: #1e1b4b; /* Indigo-950 */
+    --secondary-foreground: #c7d2fe; /* Indigo-200 */
+
+    /* Dark grays for muted text */
+    --muted: #1e293b; /* Slate-800 */
+    --muted-foreground: #94a3b8; /* Slate-400 */
+
+    /* Deep purple accents */
+    --accent: #3b0764; /* Purple-950 */
+    --accent-foreground: #d8b4fe; /* Purple-300 */
+
+    /* Softened Danger Red for Dark Mode */
+    --destructive: #f87171; /* Red-400 */
+    --destructive-foreground: #450a0a; /* Red-950 */
+
+    /* Subtle borders */
+    --border: #1e293b; /* Slate-800 */
+    --input: #1e293b;
+
+    /* Bright focus rings */
+    --ring: #818cf8; /* Indigo-400 */
+  }
 }
 
 @layer base {
   * {
-    border-color: var(--color-border);
+    border-color: var(--border);
   }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 }
