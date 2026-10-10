@@ -33,6 +33,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  /* Slightly sharper corners (0.5rem) look better for dense data tables */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -41,90 +42,78 @@
 @layer base {
   :root {
     /* ─────────────────────────────────────────
-       LIGHT MODE (Vibrant Indigo & Clean White)
+       LIGHT MODE (Crisp Zinc & Teal)
        ───────────────────────────────────────── */
-
-    --background: #f8fafc; /* Soft slate-50 background */
-    --foreground: #0f172a; /* Slate-900 text */
+    --background: #fafafa; /* Zinc-50 */
+    --foreground: #09090b; /* Zinc-950 */
 
     --card: #ffffff;
-    --card-foreground: #0f172a;
+    --card-foreground: #09090b;
 
     --popover: #ffffff;
-    --popover-foreground: #0f172a;
+    --popover-foreground: #09090b;
 
-    /* Punchy Indigo Primary */
-    --primary: #4f46e5; /* Indigo-600 */
+    /* Professional Teal for primary actions (Add Stock, Save) */
+    --primary: #0f766e; /* Teal-700 */
     --primary-foreground: #ffffff;
 
-    /* Soft Indigo/Blue for secondary elements */
-    --secondary: #e0e7ff; /* Indigo-100 */
-    --secondary-foreground: #3730a3; /* Indigo-800 */
+    /* Subtle grays for secondary buttons and tags */
+    --secondary: #f4f4f5; /* Zinc-100 */
+    --secondary-foreground: #18181b; /* Zinc-900 */
 
-    /* Grays for empty states/borders */
-    --muted: #f1f5f9; /* Slate-100 */
-    --muted-foreground: #64748b; /* Slate-500 */
+    /* Muted backgrounds for table headers and inactive tabs */
+    --muted: #f4f4f5; /* Zinc-100 */
+    --muted-foreground: #71717a; /* Zinc-500 */
 
-    /* Violet accents for hover states */
-    --accent: #f3e8ff; /* Purple-100 */
-    --accent-foreground: #6b21a8; /* Purple-800 */
+    /* Hover states */
+    --accent: #f4f4f5; /* Zinc-100 */
+    --accent-foreground: #09090b; /* Zinc-950 */
 
-    /* Vibrant Danger Red */
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
+    /* Alerts and Out of Stock indicators */
+    --destructive: #ef4444; /* Red-500 */
+    --destructive-foreground: #fafafa; /* Zinc-50 */
 
-    /* Clean Borders */
-    --border: #e2e8f0;
-    --input: #e2e8f0;
+    /* Clean Borders for tables and inputs */
+    --border: #e4e4e7; /* Zinc-200 */
+    --input: #e4e4e7; /* Zinc-200 */
 
-    /* Focus Rings */
-    --ring: #6366f1; /* Indigo-500 */
-
-    --radius: 0.75rem;
+    --ring: #0f766e; /* Teal-700 */
+    --radius: 0.5rem;
   }
 
   .dark {
     /* ─────────────────────────────────────────
-       DARK MODE (Midnight Blue & Neon Indigo)
+       DARK MODE (Deep Zinc & Bright Teal)
        ───────────────────────────────────────── */
+    --background: #09090b; /* Zinc-950 */
+    --foreground: #fafafa; /* Zinc-50 */
 
-    /* Deep rich blue/black */
-    --background: #020617; /* Slate-950 */
-    --foreground: #f8fafc; /* Slate-50 */
+    --card: #18181b; /* Zinc-900 */
+    --card-foreground: #fafafa;
 
-    /* Slightly lighter blue for cards */
-    --card: #0f172a; /* Slate-900 */
-    --card-foreground: #f8fafc;
+    --popover: #18181b; /* Zinc-900 */
+    --popover-foreground: #fafafa;
 
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
+    /* Bright Teal for visibility on dark backgrounds */
+    --primary: #2dd4bf; /* Teal-400 */
+    --primary-foreground: #042f2e; /* Teal-950 */
 
-    /* Bright Neon Indigo */
-    --primary: #818cf8; /* Indigo-400 */
-    --primary-foreground: #1e1b4b; /* Indigo-950 (Dark text on light button) */
+    --secondary: #27272a; /* Zinc-800 */
+    --secondary-foreground: #fafafa;
 
-    /* Darker Indigo for secondary backgrounds */
-    --secondary: #1e1b4b; /* Indigo-950 */
-    --secondary-foreground: #c7d2fe; /* Indigo-200 */
+    --muted: #27272a; /* Zinc-800 */
+    --muted-foreground: #a1a1aa; /* Zinc-400 */
 
-    /* Dark grays for muted text */
-    --muted: #1e293b; /* Slate-800 */
-    --muted-foreground: #94a3b8; /* Slate-400 */
+    --accent: #27272a; /* Zinc-800 */
+    --accent-foreground: #fafafa;
 
-    /* Deep purple accents */
-    --accent: #3b0764; /* Purple-950 */
-    --accent-foreground: #d8b4fe; /* Purple-300 */
+    --destructive: #ef4444; /* Red-500 */
+    --destructive-foreground: #fafafa;
 
-    /* Softened Danger Red for Dark Mode */
-    --destructive: #f87171; /* Red-400 */
-    --destructive-foreground: #450a0a; /* Red-950 */
+    --border: #27272a; /* Zinc-800 */
+    --input: #27272a; /* Zinc-800 */
 
-    /* Subtle borders */
-    --border: #1e293b; /* Slate-800 */
-    --input: #1e293b;
-
-    /* Bright focus rings */
-    --ring: #818cf8; /* Indigo-400 */
+    --ring: #2dd4bf; /* Teal-400 */
   }
 }
 
