@@ -8,6 +8,8 @@ import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import suppliersRoutes from "./routes/suppliersRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import warehouseRoutes from "./routes/storeRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -23,6 +25,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/warehouses", warehouseRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "FlowBox API is running smoothly....." });

@@ -1,36 +1,70 @@
-import Store from "../models/Store.js";
+import Warehouse from "../models/Store.js";
 
-export const createStore = async (req, res) => {
+// @desc    Get all warehouses for logged-in user
+// @route   GET /api/warehouses
+// @access  Private
+export const getWarehouses = async (req, res, next) => {
   try {
-    const { name, location, capacity } = req.body;
+    const warehouses = await Warehouse.find({ user: req.user._id }).sort({
+      createdAt: -1,
+    });
+    res.json(warehouses);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Create a new warehouse for logged-in user
+// @route   POST /api/warehouses
+// @access  Private
+export const createWarehouse = async (req, res, next) => {
+  try {
+    const { name, location, capacity, currentLoad } = req.body;
 
     if (!name || !location || !capacity) {
       return res
         .status(400)
-        .json({ message: "Please provide both a name and a location" });
+        .json({ message: "Name, location, and capacity are required" });
     }
 
-    const newStore = await Store.create({
+    const warehouse = await Warehouse.create({
+      user: req.user._id, // Ties warehouse to the logged-in user
       name,
       location,
-      capacity,
-      currentLoad: 0,
+      capacity: Number(capacity),
+      currentLoad: Number(currentLoad) || 0,
     });
-    res.status(201).json(newStore);
-  } catch (e) {
-    res
-      .status(500)
-      .json({ message: "Failed to create store!", error: e.message });
+
+    res.status(201).json(warehouse);
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getStore = async (req, res) => {
+// @desc    Delete a user's warehouse
+// @route   DELETE /api/warehouses/:id
+// @access  Private
+export const deleteWarehouse = async (req, res, next) => {
   try {
-    const store = await Store.find({});
-    res.status(200).json(store);
-  } catch (e) {
-    res
-      .status(500)
-      .json({ message: "Failed to fetch stores", error: e.message });
+    const warehouse = await Warehouse.findOne({
+      _id: req.params.id,
+      user: req.user._id, // Ensures a user can't delete someone else's warehouse
+    });
+
+    if (!warehouse) {
+      return res.status(404).json({ message: "Warehouse not found" });
+    }
+
+    if (warehouse.currentLoad > 0) {
+      return res.status(400).json({
+        message:
+          "Cannot delete warehouse with active stock. Transfer stock first.",
+      });
+    }
+
+    await warehouse.deleteOne();
+    res.json({ message: "Warehouse removed", id: req.params.id });
+  } catch (error) {
+    next(error);
   }
 };

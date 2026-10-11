@@ -1,9 +1,17 @@
 import express from "express";
-import { createStore, getStore } from "../controllers/storeController.js";
+import {
+  getWarehouses,
+  createWarehouse,
+  deleteWarehouse,
+} from "../controllers/storeController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post('/', createStore)
-router.get('/', getStore)
+// Protect all warehouse routes
+router.use(protect);
+
+router.route("/").get(getWarehouses).post(createWarehouse);
+router.route("/:id").delete(deleteWarehouse);
 
 export default router;
