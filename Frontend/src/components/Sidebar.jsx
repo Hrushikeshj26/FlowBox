@@ -69,7 +69,7 @@ export default function Sidebar() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium ${
                   isActive
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/10 border-2 border-slate-300 dark:border-slate-600 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 } ${isCollapsed ? "justify-center" : "justify-start"}`
               }
