@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Building2, MapPin, Plus, Trash2, Box, Loader2 } from "lucide-react";
 
 // Shadcn Components
@@ -21,68 +22,86 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const API_WAREHOUSES = "http://localhost:5000/api/warehouses";
+
+// Helper to get headers with token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("flowbox_token");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 export default function Warehouses() {
-  const [stores, setStores] = useState([]);
+  const navigate = useNavigate();
+  const [warehouses, setWarehouses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [newWarehouse, setNewWarehouse] = useState({
     name: "",
     location: "",
     capacity: "",
   });
 
-  const fetchStores = async () => {
+  // 1. Fetch only the logged-in user's warehouses
+  const fetchWarehouses = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/stores");
-
-      if (response.ok) {
-        setStores(await response.json());
+      const res = await fetch(API_WAREHOUSES, {
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        // Token expired or not logged in
+        navigate("/login");
+        return;
       }
+      const data = await res.json();
+      setWarehouses(data);
     } catch (error) {
-      console.error("Failed to fetch stores:", error);
+      console.error("Failed to fetch warehouses:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStores();
+    fetchWarehouses();
   }, []);
 
-  const handleAddStore = async (e) => {
+  // 2. Create a warehouse for the logged-in user
+  const handleCreateWarehouse = async (e) => {
     e.preventDefault();
-
     try {
-      const response = await fetch("http://localhost:5000/api/stores", {
+      const res = await fetch(API_WAREHOUSES, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          name: formData.name,
-          location: formData.location,
-          capacity: Number(formData.capacity),
+          name: newWarehouse.name,
+          location: newWarehouse.location,
+          capacity: Number(newWarehouse.capacity),
+          currentLoad: 0,
         }),
       });
 
-      if (response.ok) {
-        setFormData({
-          name: "",
-          location: "",
-          capacity: "",
-        });
+      const created = await res.json();
+      if (!res.ok) throw new Error(created.message);
 
-        await fetchStores();
-      } else {
-        const errorData = await response.json();
+      // Prepend new warehouse to state
+      setWarehouses((prev) => [created, ...prev]);
 
-        alert(`Failed to create warehouse: ${errorData.message}`);
-      }
+      // Reset form
+      setNewWarehouse({
+        name: "",
+        location: "",
+        capacity: "",
+      });
     } catch (error) {
-      console.error("Error creating warehouse:", error);
+      console.error("Error creating warehouse:", error.message);
+      alert(`Failed to create warehouse: ${error.message}`);
     }
   };
 
+  // 3. Delete a warehouse
   const handleDelete = async (id) => {
     if (
       !window.confirm(
@@ -93,12 +112,18 @@ export default function Warehouses() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/stores/${id}`, {
+      const res = await fetch(`${API_WAREHOUSES}/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
 
-      if (response.ok) {
-        await fetchStores();
+      if (res.status === 401) {
+        navigate("/login");
+        return;
+      }
+
+      if (res.ok) {
+        setWarehouses((prev) => prev.filter((w) => w._id !== id));
       }
     } catch (error) {
       console.error("Error deleting warehouse:", error);
@@ -138,7 +163,7 @@ export default function Warehouses() {
 
         <CardContent>
           <form
-            onSubmit={handleAddStore}
+            onSubmit={handleCreateWarehouse}
             className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"
           >
             {/* Warehouse Name */}
@@ -151,10 +176,10 @@ export default function Warehouses() {
               <Input
                 required
                 placeholder="Main Facility"
-                value={formData.name}
+                value={newWarehouse.name}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  setNewWarehouse({
+                    ...newWarehouse,
                     name: e.target.value,
                   })
                 }
@@ -172,10 +197,10 @@ export default function Warehouses() {
               <Input
                 required
                 placeholder="123 Industrial Pkwy, City"
-                value={formData.location}
+                value={newWarehouse.location}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  setNewWarehouse({
+                    ...newWarehouse,
                     location: e.target.value,
                   })
                 }
@@ -196,10 +221,10 @@ export default function Warehouses() {
                   type="number"
                   min="1"
                   placeholder="5000"
-                  value={formData.capacity}
+                  value={newWarehouse.capacity}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
+                    setNewWarehouse({
+                      ...newWarehouse,
                       capacity: e.target.value,
                     })
                   }
@@ -276,7 +301,7 @@ export default function Warehouses() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : stores.length === 0 ? (
+              ) : warehouses.length === 0 ? (
                 /* Empty */
 
                 <TableRow>
@@ -288,7 +313,7 @@ export default function Warehouses() {
                   </TableCell>
                 </TableRow>
               ) : (
-                stores.map((store) => {
+                warehouses.map((store) => {
                   const loadPercentage =
                     store.capacity > 0
                       ? (store.currentLoad / store.capacity) * 100

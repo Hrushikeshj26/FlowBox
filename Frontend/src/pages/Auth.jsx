@@ -1,25 +1,70 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Box, ArrowLeft, Loader2 } from "lucide-react";
+import { Box, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
+const API_AUTH = "http://localhost:5000/api/auth";
+
 export default function Auth() {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true); // true = Sign In, false = Sign Up
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleAuth = (e) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const handleTabSwitch = (loginState) => {
+    setIsLogin(loginState);
+    setError("");
+  };
+
+  const handleAuth = async (e) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
 
-    // Simulate authentication delay
-    setTimeout(() => {
-      setIsLoading(false);
+    const endpoint = isLogin ? `${API_AUTH}/login` : `${API_AUTH}/register`;
+    const payload = isLogin
+      ? { email: formData.email, password: formData.password }
+      : {
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        };
+
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Authentication failed");
+      }
+
+      // Save JWT token and user details for Warehouses & other protected pages
+      localStorage.setItem("flowbox_token", data.token);
+      localStorage.setItem("flowbox_user", JSON.stringify(data));
+
+      // Redirect after successful login/signup
       navigate("/");
-    }, 1200);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,7 +130,7 @@ export default function Auth() {
             <div className="flex bg-muted p-1 rounded-md h-12 border border-border/50">
               <button
                 type="button"
-                onClick={() => setIsLogin(true)}
+                onClick={() => handleTabSwitch(true)}
                 className={`flex-1 rounded-md font-medium text-sm transition-all ${
                   isLogin
                     ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
@@ -96,7 +141,7 @@ export default function Auth() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsLogin(false)}
+                onClick={() => handleTabSwitch(false)}
                 className={`flex-1 rounded-md font-medium text-sm transition-all ${
                   !isLogin
                     ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
@@ -109,6 +154,14 @@ export default function Auth() {
           </div>
 
           <CardContent className="p-6 pt-6">
+            {/* Error Banner */}
+            {error && (
+              <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             {isLogin ? (
               /* --- SIGN IN FORM --- */
               <div className="space-y-4">
@@ -128,6 +181,10 @@ export default function Auth() {
                       required
                       type="email"
                       placeholder="admin@flowbox.com"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
                       className="h-11 rounded-md bg-background border-border/60 focus-visible:ring-primary shadow-sm"
                     />
                   </div>
@@ -145,6 +202,10 @@ export default function Auth() {
                       required
                       type="password"
                       placeholder="••••••••"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
                       className="h-11 rounded-md bg-background border-border/60 focus-visible:ring-primary shadow-sm"
                     />
                   </div>
@@ -183,6 +244,10 @@ export default function Auth() {
                     <Input
                       required
                       placeholder="Acme Logistics Inc."
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       className="h-11 rounded-md bg-background border-border/60 focus-visible:ring-primary shadow-sm"
                     />
                   </div>
@@ -192,6 +257,10 @@ export default function Auth() {
                       required
                       type="email"
                       placeholder="you@company.com"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
                       className="h-11 rounded-md bg-background border-border/60 focus-visible:ring-primary shadow-sm"
                     />
                   </div>
@@ -202,7 +271,12 @@ export default function Auth() {
                     <Input
                       required
                       type="password"
+                      minLength={6}
                       placeholder="••••••••"
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
                       className="h-11 rounded-md bg-background border-border/60 focus-visible:ring-primary shadow-sm"
                     />
                   </div>
