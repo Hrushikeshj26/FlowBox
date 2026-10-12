@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { PackageSearch, Plus, Trash2, MapPin, Package } from "lucide-react";
 
 // Shadcn Components
@@ -22,7 +23,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const API_PRODUCTS = "http://localhost:5000/api/products";
+const API_WAREHOUSES = "http://localhost:5000/api/warehouses"; // Change to /api/stores if your server.js uses /api/stores
+
+// Helper to get headers with token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("flowbox_token");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 export default function Inventory() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [stores, setStores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,40 +48,48 @@ export default function Inventory() {
     storeId: "",
   });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [productsRes, storesRes] = await Promise.all([
-          fetch("http://localhost:5000/api/products"),
-          fetch("http://localhost:5000/api/stores"),
-        ]);
+  const fetchData = async () => {
+    try {
+      const [productsRes, storesRes] = await Promise.all([
+        fetch(API_PRODUCTS, { headers: getAuthHeaders() }),
+        fetch(API_WAREHOUSES, { headers: getAuthHeaders() }),
+      ]);
 
-        if (productsRes.ok) {
-          setProducts(await productsRes.json());
-        }
-
-        if (storesRes.ok) {
-          setStores(await storesRes.json());
-        }
-      } catch (error) {
-        console.error("Failed to fetch:", error);
-      } finally {
-        setIsLoading(false);
+      if (productsRes.status === 401 || storesRes.status === 401) {
+        navigate("/auth");
+        return;
       }
-    };
 
+      if (productsRes.ok) {
+        setProducts(await productsRes.json());
+      }
+
+      if (storesRes.ok) {
+        setStores(await storesRes.json());
+      }
+    } catch (error) {
+      console.error("Failed to fetch:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.storeId) {
+      alert("Please select a warehouse location.");
+      return;
+    }
+
     try {
-      const response = await fetch("http://localhost:5000/api/products", {
+      const response = await fetch(API_PRODUCTS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: formData.name,
           price: Number(formData.price),
@@ -76,22 +98,35 @@ export default function Inventory() {
         }),
       });
 
-      if (response.ok) {
-        setFormData({
-          name: "",
-          price: "",
-          stockCount: "",
-          storeId: "",
-        });
+      if (response.status === 401) {
+        navigate("/login");
+        return;
+      }
 
-        const freshRes = await fetch("http://localhost:5000/api/products");
+      const data = await response.json();
 
-        if (freshRes.ok) {
-          setProducts(await freshRes.json());
-        }
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create product");
+      }
+
+      setFormData({
+        name: "",
+        price: "",
+        stockCount: "",
+        storeId: "",
+      });
+
+      // Refresh products for the logged-in user
+      const freshRes = await fetch(API_PRODUCTS, {
+        headers: getAuthHeaders(),
+      });
+
+      if (freshRes.ok) {
+        setProducts(await freshRes.json());
       }
     } catch (error) {
-      console.error("Error creating product:", error);
+      console.error("Error creating product:", error.message);
+      alert(error.message);
     }
   };
 
@@ -101,17 +136,23 @@ export default function Inventory() {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/products/${productId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await fetch(`${API_PRODUCTS}/${productId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (response.status === 401) {
+        navigate("/login");
+        return;
+      }
 
       if (response.ok) {
         setProducts((currentProducts) =>
           currentProducts.filter((p) => p._id !== productId),
         );
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to delete product");
       }
     } catch (error) {
       console.error("Error deleting product:", error);

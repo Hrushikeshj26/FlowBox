@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
   Plus,
-  Mail,
-  Phone,
+  Trash2,
   Package,
   Loader2,
+  User,
+  Mail,
+  Phone,
 } from "lucide-react";
 
+// Shadcn Components
 import {
   Card,
   CardContent,
@@ -17,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,7 +38,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+const API_ORDERS = "http://localhost:5000/api/orders";
+const API_PRODUCTS = "http://localhost:5000/api/products";
+
+// Helper to get headers with token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("flowbox_token");
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 export default function Orders() {
+  const navigate = useNavigate();
+
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,224 +63,242 @@ export default function Orders() {
     customerEmail: "",
     customerPhone: "",
     productId: "",
-    quantity: 1,
+    quantity: "1",
   });
 
-  const fetchData = async () => {
+  // 1. Fetch only the logged-in user's orders and available products
+  const fetchOrdersAndProducts = async () => {
     try {
+      const headers = getAuthHeaders();
       const [ordersRes, productsRes] = await Promise.all([
-        fetch("http://localhost:5000/api/orders"),
-        fetch("http://localhost:5000/api/products"),
+        fetch(API_ORDERS, { headers }),
+        fetch(API_PRODUCTS, { headers }),
       ]);
+
+      if (ordersRes.status === 401 || productsRes.status === 401) {
+        navigate("/auth");
+        return;
+      }
 
       if (ordersRes.ok) {
         setOrders(await ordersRes.json());
       }
-
       if (productsRes.ok) {
         setProducts(await productsRes.json());
       }
     } catch (error) {
-      console.error("Failed to fetch data:", error);
+      console.error("Failed to fetch orders/products:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchOrdersAndProducts();
   }, []);
 
-  const handleSubmit = async (e) => {
+  // 2. Create a new order for the logged-in user
+  const handleCreateOrder = async (e) => {
     e.preventDefault();
+
+    if (!formData.productId) {
+      alert("Please select a product.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/orders", {
+      const res = await fetch(API_ORDERS, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          ...formData,
+          customerName: formData.customerName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
+          productId: formData.productId,
           quantity: Number(formData.quantity),
         }),
       });
 
-      if (response.ok) {
-        setFormData({
-          customerName: "",
-          customerEmail: "",
-          customerPhone: "",
-          productId: "",
-          quantity: 1,
-        });
-
-        await fetchData();
-      } else {
-        const errorData = await response.json();
-
-        alert(`Error creating order: ${errorData.message}`);
+      if (res.status === 401) {
+        navigate("/login");
+        return;
       }
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create order");
+      }
+
+      // Reset form
+      setFormData({
+        customerName: "",
+        customerEmail: "",
+        customerPhone: "",
+        productId: "",
+        quantity: "1",
+      });
+
+      // Refresh orders and updated product stock counts
+      await fetchOrdersAndProducts();
     } catch (error) {
-      console.error("Failed to create order:", error);
+      console.error("Error creating order:", error.message);
+      alert(error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 3. Update order status
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/orders/${orderId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        },
-      );
+      const res = await fetch(`${API_ORDERS}/${orderId}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-      if (response.ok) {
-        setOrders((currentOrders) =>
-          currentOrders.map((order) =>
-            order._id === orderId
-              ? {
-                  ...order,
-                  status: newStatus,
-                }
-              : order,
+      if (res.status === 401) {
+        navigate("/login");
+        return;
+      }
+
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order._id === orderId ? { ...order, status: newStatus } : order,
           ),
         );
       }
     } catch (error) {
-      console.error("Error updating status:", error);
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  // 4. Delete order & restore stock
+  const handleDeleteOrder = async (orderId) => {
+    if (
+      !window.confirm(
+        "Cancel this order and restore the units back to inventory?",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_ORDERS}/${orderId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      if (res.status === 401) {
+        navigate("/login");
+        return;
+      }
+
+      if (res.ok) {
+        await fetchOrdersAndProducts();
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error);
     }
   };
 
   return (
     <div className="space-y-6">
       {/* ───────────────── HEADER ───────────────── */}
-
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <ShoppingCart className="h-5 w-5" />
           </div>
-
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Orders
           </h1>
         </div>
-
         <p className="text-sm text-muted-foreground">
-          Process new sales, track fulfillment, and capture customer data.
+          Create customer orders, track fulfillment status, and auto-adjust
+          stock.
         </p>
       </div>
 
-      {/* ───────────────── CREATE ORDER ───────────────── */}
-
-      <Card>
+      {/* ───────────────── CREATE ORDER CARD ───────────────── */}
+      <Card className="border-border bg-card shadow-sm">
         <CardHeader className="border-b border-border bg-muted/30 pb-4">
           <CardTitle className="text-lg">Create New Order</CardTitle>
-
           <CardDescription>
-            Customer details will automatically be saved to the CRM.
+            Placing an order automatically deducts units from your inventory.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="pt-6">
           <form
-            onSubmit={handleSubmit}
-            className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 lg:grid-cols-6"
+            onSubmit={handleCreateOrder}
+            className="grid grid-cols-1 items-start gap-4 md:grid-cols-5"
           >
             {/* Customer Name */}
-
-            <div className="space-y-2 lg:col-span-1">
+            <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Customer Name
               </label>
-
               <Input
                 required
                 placeholder="John Doe"
                 value={formData.customerName}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    customerName: e.target.value,
-                  })
+                  setFormData({ ...formData, customerName: e.target.value })
                 }
-                className="bg-background"
               />
             </div>
 
-            {/* Email */}
-
-            <div className="space-y-2 lg:col-span-1">
+            {/* Customer Email */}
+            <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                Email Address
+                Email
               </label>
-
               <Input
+                required
                 type="email"
-                placeholder="john@example.com"
+                placeholder="john@company.com"
                 value={formData.customerEmail}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    customerEmail: e.target.value,
-                  })
+                  setFormData({ ...formData, customerEmail: e.target.value })
                 }
-                className="bg-background"
               />
             </div>
 
-            {/* Phone */}
-
-            <div className="space-y-2 lg:col-span-1">
+            {/* Customer Phone */}
+            <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                Phone Number
+                Phone
               </label>
-
               <Input
-                type="tel"
+                required
                 placeholder="+1 (555) 000-0000"
                 value={formData.customerPhone}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    customerPhone: e.target.value,
-                  })
+                  setFormData({ ...formData, customerPhone: e.target.value })
                 }
-                className="bg-background"
               />
             </div>
 
-            {/* Product */}
-
-            <div className="space-y-2 lg:col-span-2">
+            {/* Product Select */}
+            <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                Select Product
+                Product
               </label>
-
               <Select
                 required
                 value={formData.productId}
                 onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    productId: value,
-                  })
+                  setFormData({ ...formData, productId: value })
                 }
               >
-                <SelectTrigger className="w-full bg-background">
-                  <SelectValue placeholder="Choose product..." />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select product..." />
                 </SelectTrigger>
-
                 <SelectContent>
                   {products.map((product) => (
                     <SelectItem
@@ -269,235 +306,193 @@ export default function Orders() {
                       value={product._id}
                       disabled={product.stockCount <= 0}
                     >
-                      {product.name} ({product.stockCount} left)
+                      {product.name} ({product.stockCount} in stock)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Quantity */}
-
-            <div className="space-y-2 lg:col-span-1">
+            {/* Quantity + Submit */}
+            <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Quantity
               </label>
-
-              <Input
-                required
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    quantity: e.target.value,
-                  })
-                }
-                className="bg-background"
-              />
-            </div>
-
-            {/* Submit */}
-
-            <div className="flex items-end lg:col-span-full">
-              <Button
-                type="submit"
-                disabled={isSubmitting || products.length === 0}
-                className="h-10 w-full sm:w-1/2 lg:w-1/4"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Order
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Input
+                  required
+                  type="number"
+                  min="1"
+                  placeholder="1"
+                  value={formData.quantity}
+                  onChange={(e) =>
+                    setFormData({ ...formData, quantity: e.target.value })
+                  }
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isSubmitting}
+                  className="shrink-0"
+                  aria-label="Create order"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
       </Card>
 
       {/* ───────────────── ORDERS TABLE ───────────────── */}
+      <Card className="overflow-hidden border-border bg-card p-0 shadow-sm">
+        <Table>
+          <TableHeader className="border-b border-border bg-muted/70 dark:bg-muted/40">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="font-semibold text-foreground">
+                Customer
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Email
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Contact
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Product
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Quantity
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Total Price
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                Status
+              </TableHead>
+              <TableHead className="text-right font-semibold text-foreground">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
-          <div>
-            <CardTitle className="text-lg">Order Directory</CardTitle>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              View and manage your recent sales and fulfillment status.
-            </p>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          <Table>
-            {/* Distinct table header */}
-
-            <TableHeader className="bg-secondary/70 dark:bg-secondary/50">
-              <TableRow className="border-b border-border hover:bg-transparent">
-                <TableHead className="h-11 font-semibold text-foreground">
-                  Customer Info
-                </TableHead>
-
-                <TableHead className="h-11 font-semibold text-foreground">
-                  Item Purchased
-                </TableHead>
-
-                <TableHead className="h-11 font-semibold text-foreground">
-                  Order Date
-                </TableHead>
-
-                <TableHead className="h-11 font-semibold text-foreground">
-                  Fulfillment Status
-                </TableHead>
-
-                <TableHead className="h-11 text-right font-semibold text-foreground">
-                  Total Amount
-                </TableHead>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    Loading orders...
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {/* Loading */}
-
-              {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      Loading order history...
+            ) : orders.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  No orders found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              orders.map((order) => (
+                <TableRow
+                  key={order._id}
+                  className="transition-colors hover:bg-muted/40"
+                >
+                  {/* Customer Info */}
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="flex items-center gap-1.5 font-medium text-foreground">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                        {order.customerName}
+                      </span>
                     </div>
                   </TableCell>
-                </TableRow>
-              ) : orders.length === 0 ? (
-                /* Empty */
 
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    No orders have been placed yet.
+                  {/* Email */}
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Mail className="h-4 w-4 text-primary" />
+                      <span>{order.customerEmail || "Email Not Provided"}</span>
+                    </div>
+                  </TableCell>
+
+                  {/* Contact */}
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Phone className="h-4 w-4 text-primary" />
+                      <span>{order.customerPhone || "Email Not Provided"}</span>
+                    </div>
+                  </TableCell>
+
+                  {/* Product */}
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Package className="h-4 w-4 text-primary" />
+                      <span>{order.productId?.name || "Deleted Product"}</span>
+                    </div>
+                  </TableCell>
+
+                  {/* Quantity */}
+                  <TableCell>
+                    <Badge variant="secondary">{order.quantity} units</Badge>
+                  </TableCell>
+
+                  {/* Total Price */}
+                  <TableCell className="font-semibold text-foreground">
+                    $
+                    {(order.totalPrice || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </TableCell>
+
+                  {/* Status Selector */}
+                  <TableCell>
+                    <Select
+                      value={order.status || "Pending"}
+                      onValueChange={(val) =>
+                        handleStatusChange(order._id, val)
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Processing">Processing</SelectItem>
+                        <SelectItem value="Shipped">Shipped</SelectItem>
+                        <SelectItem value="Delivered">Delivered</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+
+                  {/* Actions */}
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteOrder(order._id)}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Delete order"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
-              ) : (
-                [...orders].reverse().map((order) => (
-                  <TableRow
-                    key={order._id}
-                    className="transition-colors hover:bg-muted/40"
-                  >
-                    {/* Customer */}
-
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">
-                          {order.customerName}
-                        </span>
-
-                        <div className="mt-1 flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-3">
-                          {order.customerEmail && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {order.customerEmail}
-                            </span>
-                          )}
-
-                          {order.customerPhone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {order.customerPhone}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    {/* Product */}
-
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                          <Package className="h-4 w-4" />
-                        </div>
-
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">
-                            {order.productId?.name || "Deleted Product"}
-                          </span>
-
-                          <span className="text-xs text-muted-foreground">
-                            Qty: {order.quantity}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    {/* Date */}
-
-                    <TableCell className="text-sm text-muted-foreground">
-                      {order.createdAt
-                        ? new Date(order.createdAt).toLocaleDateString()
-                        : "Just now"}
-                    </TableCell>
-
-                    {/* Status */}
-
-                    <TableCell>
-                      <Select
-                        value={order.status || "Pending"}
-                        onValueChange={(value) =>
-                          handleStatusChange(order._id, value)
-                        }
-                      >
-                        <SelectTrigger
-                          className={`h-8 w-[130px] border-0 text-xs font-semibold shadow-none focus:ring-0 ${
-                            order.status === "Pending"
-                              ? "bg-amber-500/10 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
-                              : order.status === "Shipped"
-                                ? "bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400"
-                                : "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400"
-                          }`}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          <SelectItem value="Pending">Pending</SelectItem>
-
-                          <SelectItem value="Shipped">Shipped</SelectItem>
-
-                          <SelectItem value="Delivered">Delivered</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-
-                    {/* Amount */}
-
-                    <TableCell className="text-right">
-                      <span className="font-bold text-foreground">
-                        $
-                        {(order.totalPrice || 0).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </Card>
     </div>
   );

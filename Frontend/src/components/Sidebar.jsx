@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   PackageSearch,
@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react";
 
 import { useTheme } from "./ThemeProvider";
@@ -20,6 +21,7 @@ import { useTheme } from "./ThemeProvider";
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
 
   const navItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -30,6 +32,12 @@ export default function Sidebar() {
     { name: "Warehouses", path: "/warehouses", icon: Building2 },
     { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
+
+  const handleLogout = () => {
+    localStorage.removeItem("flowbox_token");
+    localStorage.removeItem("flowbox_user");
+    navigate("/auth");
+  };
 
   return (
     <aside
@@ -100,6 +108,17 @@ export default function Sidebar() {
               Light Mode
             </span>
           )}
+        </button>
+
+        <button
+          onClick={handleLogout}
+          title={isCollapsed ? "Logout" : ""}
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 ${
+            isCollapsed ? "justify-center px-0" : ""
+          }`}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!isCollapsed && <span>Logout</span>}
         </button>
 
         <button

@@ -1,35 +1,56 @@
-import { Routes, Route } from "react-router-dom";
+import React from "react";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
-import Home from "./pages/Home";
+// Pages & Layout
 import LandingPage from "./pages/LandingPage";
 import Auth from "./pages/Auth";
-import Inventory from "./pages/Inventory";
-import Orders from "./pages/Orders";
+import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
+import Inventory from "./pages/Inventory";
 import Warehouses from "./pages/Warehouses";
+import Orders from "./pages/Orders";
 import Suppliers from "./pages/Suppliers";
-import Transfers from "./pages/Transfers";
 import Customers from "./pages/Customers";
+import Transfers from "./pages/Transfers";
 
-const App = () => {
-  return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/landing" element={<LandingPage />} />
-      <Route path="/auth" element={<Auth />} />
-
-      {/* Private App Routes */}
-      <Route path="/" element={<Home />}>
-        <Route index element={<Dashboard />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="suppliers" element={<Suppliers />} />
-        <Route path="warehouses" element={<Warehouses />} />
-        <Route path="transfers" element={<Transfers />} />
-        <Route path="Customers" element={<Customers />} />
-      </Route>
-    </Routes>
-  );
+// 1. Guard for Main App Pages (Only accessible when LOGGED IN)
+const ProtectedRoute = () => {
+  const token = localStorage.getItem("flowbox_token");
+  return token ? <Outlet /> : <Navigate to="/landing" replace />;
 };
 
-export default App;
+// 2. Guard for Landing & Auth Pages (Only accessible when LOGGED OUT)
+const PublicRoute = () => {
+  const token = localStorage.getItem("flowbox_token");
+  return token ? <Navigate to="/" replace /> : <Outlet />;
+};
+
+export default function App() {
+  return (
+    <Routes>
+      {/* ─── PUBLIC ROUTES (Logged-Out Users Only) ─── */}
+      <Route element={<PublicRoute />}>
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/signup" element={<Auth />} />
+      </Route>
+
+      {/* ─── PROTECTED ROUTES (Logged-In Users Only) ─── */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Home />}>
+          <Route index element={<Dashboard />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="warehouses" element={<Warehouses />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="transfers" element={<Transfers />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="suppliers" element={<Suppliers />} />
+        </Route>
+      </Route>
+
+      {/* ─── CATCH-ALL FALLBACK ─── */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
