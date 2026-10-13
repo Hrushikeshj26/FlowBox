@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import Papa from "papaparse";
 import {
   Truck,
   Plus,
@@ -9,6 +10,8 @@ import {
   Tag,
   Loader2,
   Building,
+  UploadCloud,
+  Download,
 } from "lucide-react";
 
 // Shadcn Components
@@ -44,10 +47,12 @@ const getAuthHeaders = () => {
 
 export default function Suppliers() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,7 +61,6 @@ export default function Suppliers() {
     phone: "",
   });
 
-  // 1. Fetch only the logged-in user's suppliers
   const fetchSuppliers = async () => {
     try {
       const res = await fetch(API_SUPPLIERS, {
@@ -83,7 +87,7 @@ export default function Suppliers() {
     fetchSuppliers();
   }, []);
 
-  // 2. Create a supplier for the logged-in user
+  // Standard Single Submit
   const handleCreateSupplier = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -95,10 +99,7 @@ export default function Suppliers() {
         body: JSON.stringify(formData),
       });
 
-      if (res.status === 401) {
-        navigate("/login");
-        return;
-      }
+      if (res.status === 401) return navigate("/login");
 
       const result = await res.json();
 
@@ -106,15 +107,9 @@ export default function Suppliers() {
         throw new Error(result.message || "Failed to create supplier");
       }
 
-      // Reset form
-      setFormData({
-        name: "",
-        contact: "",
-        category: "",
-        phone: "",
-      });
+      setFormData({ name: "", contact: "", category: "", phone: "" });
 
-      // Prepend newly created supplier (supports both { data: newSupplier } and direct object)
+      // Prepend newly created supplier
       const createdSupplier = result.data || result;
       setSuppliers((prev) => [createdSupplier, ...prev]);
     } catch (error) {
@@ -125,11 +120,9 @@ export default function Suppliers() {
     }
   };
 
-  // 3. Delete a supplier
   const handleDeleteSupplier = async (id) => {
-    if (!window.confirm("Are you sure you want to remove this supplier?")) {
+    if (!window.confirm("Are you sure you want to remove this supplier?"))
       return;
-    }
 
     try {
       const res = await fetch(`${API_SUPPLIERS}/${id}`, {
@@ -137,10 +130,7 @@ export default function Suppliers() {
         headers: getAuthHeaders(),
       });
 
-      if (res.status === 401) {
-        navigate("/login");
-        return;
-      }
+      if (res.status === 401) return navigate("/login");
 
       if (res.ok) {
         setSuppliers((prev) => prev.filter((s) => s._id !== id));
@@ -150,22 +140,112 @@ export default function Suppliers() {
     }
   };
 
+  // ───────────────── CSV IMPORT LOGIC ─────────────────
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const downloadTemplate = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8,name,contact,category,phone\nApex Supplies,orders@apex.com,Packaging,+15551234567";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "flowbox_suppliers_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const parsedSuppliers = results.data.map((row) => ({
+            name: row.name,
+            contact: row.contact,
+            category: row.category,
+            phone: row.phone,
+          }));
+
+          const response = await fetch(`${API_SUPPLIERS}/bulk`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ suppliers: parsedSuppliers }),
+          });
+
+          if (response.status === 401) return navigate("/login");
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message);
+
+          alert(data.message);
+          fetchSuppliers(); // Refresh the table
+        } catch (error) {
+          alert(`Import failed: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+      },
+      error: () => {
+        alert("Error reading CSV file.");
+        setIsUploading(false);
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* ───────────────── HEADER ───────────────── */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Truck className="h-5 w-5" />
+      {/* ───────────────── HEADER WITH CSV ACTIONS ───────────────── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Truck className="h-5 w-5" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Suppliers
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Suppliers
-          </h1>
+          <p className="text-sm text-muted-foreground">
+            Manage vendor partnerships, contact directories, and supply
+            categories.
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Manage vendor partnerships, contact directories, and supply
-          categories.
-        </p>
+
+        {/* CSV Buttons */}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <Download className="mr-2 h-4 w-4" />
+            Template
+          </Button>
+          <Button size="sm" onClick={triggerFileInput} disabled={isUploading}>
+            {isUploading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <UploadCloud className="mr-2 h-4 w-4" />
+            )}
+            {isUploading ? "Importing..." : "Import CSV"}
+          </Button>
+
+          {/* Hidden Input */}
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
       </div>
 
       {/* ───────────────── ADD SUPPLIER CARD ───────────────── */}
@@ -303,7 +383,7 @@ export default function Suppliers() {
                   colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No suppliers found.
+                  No suppliers found. Import a CSV to get started.
                 </TableCell>
               </TableRow>
             ) : (

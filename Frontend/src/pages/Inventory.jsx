@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { PackageSearch, Plus, Trash2, MapPin, Package } from "lucide-react";
+import Papa from "papaparse";
+import {
+  PackageSearch,
+  Plus,
+  Trash2,
+  MapPin,
+  Package,
+  UploadCloud,
+  Download,
+  Loader2,
+} from "lucide-react";
 
 // Shadcn Components
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,9 +40,8 @@ import {
 } from "@/components/ui/table";
 
 const API_PRODUCTS = "http://localhost:5000/api/products";
-const API_WAREHOUSES = "http://localhost:5000/api/warehouses"; // Change to /api/stores if your server.js uses /api/stores
+const API_WAREHOUSES = "http://localhost:5000/api/warehouses";
 
-// Helper to get headers with token
 const getAuthHeaders = () => {
   const token = localStorage.getItem("flowbox_token");
   return {
@@ -37,9 +52,13 @@ const getAuthHeaders = () => {
 
 export default function Inventory() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null); // Reference for the hidden file input
+
+  const [importStoreId, setImportStoreId] = useState("");
   const [products, setProducts] = useState([]);
   const [stores, setStores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,17 +75,12 @@ export default function Inventory() {
       ]);
 
       if (productsRes.status === 401 || storesRes.status === 401) {
-        navigate("/auth");
+        navigate("/login");
         return;
       }
 
-      if (productsRes.ok) {
-        setProducts(await productsRes.json());
-      }
-
-      if (storesRes.ok) {
-        setStores(await storesRes.json());
-      }
+      if (productsRes.ok) setProducts(await productsRes.json());
+      if (storesRes.ok) setStores(await storesRes.json());
     } catch (error) {
       console.error("Failed to fetch:", error);
     } finally {
@@ -78,9 +92,9 @@ export default function Inventory() {
     fetchData();
   }, []);
 
+  // Standard Single Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.storeId) {
       alert("Please select a warehouse location.");
       return;
@@ -98,79 +112,162 @@ export default function Inventory() {
         }),
       });
 
-      if (response.status === 401) {
-        navigate("/login");
-        return;
-      }
+      if (response.status === 401) return navigate("/login");
+      if (!response.ok) throw new Error("Failed to create product");
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create product");
-      }
-
-      setFormData({
-        name: "",
-        price: "",
-        stockCount: "",
-        storeId: "",
-      });
-
-      // Refresh products for the logged-in user
-      const freshRes = await fetch(API_PRODUCTS, {
-        headers: getAuthHeaders(),
-      });
-
-      if (freshRes.ok) {
-        setProducts(await freshRes.json());
-      }
+      setFormData({ name: "", price: "", stockCount: "", storeId: "" });
+      fetchData();
     } catch (error) {
-      console.error("Error creating product:", error.message);
       alert(error.message);
     }
   };
 
   const handleDelete = async (productId) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) {
+    if (!window.confirm("Are you sure you want to delete this product?"))
       return;
-    }
-
     try {
       const response = await fetch(`${API_PRODUCTS}/${productId}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
-
-      if (response.status === 401) {
-        navigate("/login");
-        return;
-      }
-
+      if (response.status === 401) return navigate("/login");
       if (response.ok) {
-        setProducts((currentProducts) =>
-          currentProducts.filter((p) => p._id !== productId),
-        );
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || "Failed to delete product");
+        setProducts((prev) => prev.filter((p) => p._id !== productId));
       }
     } catch (error) {
       console.error("Error deleting product:", error);
     }
   };
 
+  // ───────────────── CSV IMPORT LOGIC ─────────────────
+
+  // 1. Trigger the hidden file input
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 2. Download a sample CSV so users know the required columns
+  const downloadTemplate = () => {
+    const csvContent =
+      "data:text/csv;charset=utf-8,name,price,stockCount\nExample Product,19.99,150";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "flowbox_inventory_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  // 3. Handle the file selection and parsing
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate that they selected a warehouse first!
+    if (!importStoreId) {
+      alert("Please select a destination warehouse before importing.");
+      fileInputRef.current.value = ""; // reset input
+      return;
+    }
+
+    setIsUploading(true);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const parsedProducts = results.data.map((row) => ({
+            name: row.name?.trim(),
+            price: Number(row.price) || 0,
+            stockCount: Number(row.stockCount) || 0,
+            storeId: importStoreId, // <--- Attach the selected warehouse here!
+          }));
+
+          const response = await fetch(`${API_PRODUCTS}/bulk`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ products: parsedProducts }),
+          });
+
+          if (response.status === 401) return navigate("/login");
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message);
+
+          alert(data.message);
+          fetchData();
+        } catch (error) {
+          alert(`Import failed: ${error.message}`);
+        } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+      },
+      error: () => {
+        alert("Error reading CSV file.");
+        setIsUploading(false);
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col gap-1">
-        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
-          <PackageSearch className="h-7 w-7 text-primary" />
-          Inventory
-        </h1>
+      {/* HEADER WITH IMPORT ACTIONS */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
+        <div className="flex flex-col gap-1">
+          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
+            <PackageSearch className="h-7 w-7 text-primary" />
+            Inventory
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your product catalog, stock levels, and storage locations.
+          </p>
+        </div>
 
-        <p className="text-sm text-muted-foreground">
-          Manage your product catalog, stock levels, and storage locations.
-        </p>
+        {/* CSV Action Buttons */}
+        {/* CSV Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1. Select Destination Warehouse */}
+          <Select value={importStoreId} onValueChange={setImportStoreId}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue placeholder="Import to warehouse..." />
+            </SelectTrigger>
+            <SelectContent>
+              {stores.map((store) => (
+                <SelectItem key={store._id} value={store._id}>
+                  {store.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* 2. Download Template */}
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <Download className="w-4 h-4 mr-2" />
+            Template
+          </Button>
+
+          {/* 3. Upload Button */}
+          <Button size="sm" onClick={triggerFileInput} disabled={isUploading}>
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <UploadCloud className="w-4 h-4 mr-2" />
+            )}
+            {isUploading ? "Importing..." : "Import CSV"}
+          </Button>
+
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </div>
       </div>
 
       {/* ADD PRODUCT CARD */}
@@ -179,38 +276,33 @@ export default function Inventory() {
           <CardTitle className="text-lg text-card-foreground">
             Add Product
           </CardTitle>
+          <CardDescription>
+            Add a single item to a specific warehouse location.
+          </CardDescription>
         </CardHeader>
-
         <CardContent className="pt-6">
           <form
             onSubmit={handleSubmit}
             className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"
           >
-            {/* PRODUCT NAME */}
+            {/* Same form as before */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Product Name
               </label>
-
               <Input
                 required
                 placeholder="Product name"
                 value={formData.name}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    name: e.target.value,
-                  })
+                  setFormData({ ...formData, name: e.target.value })
                 }
               />
             </div>
-
-            {/* PRICE */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Price
               </label>
-
               <Input
                 required
                 type="number"
@@ -219,20 +311,14 @@ export default function Inventory() {
                 placeholder="0.00"
                 value={formData.price}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    price: e.target.value,
-                  })
+                  setFormData({ ...formData, price: e.target.value })
                 }
               />
             </div>
-
-            {/* STOCK */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Stock Count
               </label>
-
               <Input
                 required
                 type="number"
@@ -240,35 +326,25 @@ export default function Inventory() {
                 placeholder="0"
                 value={formData.stockCount}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    stockCount: e.target.value,
-                  })
+                  setFormData({ ...formData, stockCount: e.target.value })
                 }
               />
             </div>
-
-            {/* LOCATION + SUBMIT */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Location
               </label>
-
               <div className="flex gap-2">
                 <Select
                   required
                   value={formData.storeId}
                   onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      storeId: value,
-                    })
+                    setFormData({ ...formData, storeId: value })
                   }
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select warehouse..." />
                   </SelectTrigger>
-
                   <SelectContent>
                     {stores.map((store) => (
                       <SelectItem key={store._id} value={store._id}>
@@ -277,7 +353,6 @@ export default function Inventory() {
                     ))}
                   </SelectContent>
                 </Select>
-
                 <Button
                   type="submit"
                   size="icon"
@@ -294,31 +369,25 @@ export default function Inventory() {
       {/* PRODUCT TABLE */}
       <Card className="overflow-hidden border-border bg-card p-0 shadow-sm">
         <Table>
-          {/* Distinct header — no top spacing */}
           <TableHeader className="border-b border-border bg-muted/70 dark:bg-muted/40">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[300px] font-semibold text-foreground">
                 Product Name
               </TableHead>
-
               <TableHead className="font-semibold text-foreground">
                 Price
               </TableHead>
-
               <TableHead className="font-semibold text-foreground">
                 Stock
               </TableHead>
-
               <TableHead className="font-semibold text-foreground">
                 Location
               </TableHead>
-
               <TableHead className="text-right font-semibold text-foreground">
                 Actions
               </TableHead>
             </TableRow>
           </TableHeader>
-
           <TableBody>
             {isLoading ? (
               <TableRow>
@@ -326,7 +395,7 @@ export default function Inventory() {
                   colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Loading inventory...
+                  <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
                 </TableCell>
               </TableRow>
             ) : products.length === 0 ? (
@@ -335,7 +404,7 @@ export default function Inventory() {
                   colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No products found.
+                  No products found. Add one above or import a CSV.
                 </TableCell>
               </TableRow>
             ) : (
@@ -350,20 +419,16 @@ export default function Inventory() {
                     key={product._id}
                     className="transition-colors hover:bg-muted/40"
                   >
-                    {/* PRODUCT */}
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Package className="h-4 w-4" />
                         </div>
-
                         <span className="font-medium text-foreground">
                           {product.name}
                         </span>
                       </div>
                     </TableCell>
-
-                    {/* PRICE */}
                     <TableCell className="font-medium text-foreground">
                       $
                       {(product.price || 0).toLocaleString(undefined, {
@@ -371,26 +436,17 @@ export default function Inventory() {
                         maximumFractionDigits: 2,
                       })}
                     </TableCell>
-
-                    {/* STOCK */}
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="border border-border bg-secondary text-secondary-foreground"
-                      >
+                      <Badge variant="secondary">
                         {product.stockCount} units
                       </Badge>
                     </TableCell>
-
-                    {/* LOCATION */}
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <MapPin className="h-3.5 w-3.5" />
                         <span>{storeName}</span>
                       </div>
                     </TableCell>
-
-                    {/* ACTIONS */}
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
