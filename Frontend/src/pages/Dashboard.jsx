@@ -10,11 +10,14 @@ import {
   Loader2,
   ArrowUpRight,
   BarChart3,
+  TrendingUp,
   PieChart as PieChartIcon,
 } from "lucide-react";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -46,7 +49,6 @@ import {
 
 const API_BASE = "http://localhost:5000/api";
 
-// Helper to get headers with token
 const getAuthHeaders = () => {
   const token = localStorage.getItem("flowbox_token");
   return {
@@ -56,11 +58,14 @@ const getAuthHeaders = () => {
 };
 
 const STATUS_COLORS = {
-  Pending: "#f59e0b", // Amber
-  Processing: "#6366f1", // Indigo
-  Shipped: "#06b6d4", // Cyan
-  Delivered: "#10b981", // Emerald
+  Pending: "#f59e0b",
+  Processing: "#6366f1",
+  Shipped: "#06b6d4",
+  Delivered: "#10b981",
 };
+
+// Custom Chart Color
+const CHART_COLOR = "#0f766e";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -70,10 +75,9 @@ export default function Dashboard() {
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Toggle between "revenue" (Monthly Revenue) and "inventory" (Stock by Product)
-  const [barView, setBarView] = useState("revenue");
+  // Toggle state: "revenue" (Line Chart) or "inventory" (Bar Chart)
+  const [chartView, setChartView] = useState("inventory");
 
-  // Read logged-in user for personalized header
   const storedUser = localStorage.getItem("flowbox_user");
   const user = storedUser ? JSON.parse(storedUser) : null;
 
@@ -81,14 +85,12 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const headers = getAuthHeaders();
-
         const [productsRes, ordersRes, suppliersRes] = await Promise.all([
           fetch(`${API_BASE}/products`, { headers }),
           fetch(`${API_BASE}/orders`, { headers }),
           fetch(`${API_BASE}/suppliers`, { headers }),
         ]);
 
-        // Redirect to login if token is missing or expired
         if (
           productsRes.status === 401 ||
           ordersRes.status === 401 ||
@@ -131,12 +133,10 @@ export default function Dashboard() {
 
   const recentOrders = orders.slice(0, 5);
 
-  // ───────────────── CHART 1: MONTHLY REVENUE DATA ─────────────────
+  // ───────────────── CHART DATA ─────────────────
   const monthlyRevenueData = useMemo(() => {
     const months = [];
     const now = new Date();
-
-    // Build last 6 months baseline so the chart axes always render cleanly
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const label = d.toLocaleString("default", { month: "short" });
@@ -146,7 +146,6 @@ export default function Dashboard() {
         revenue: 0,
       });
     }
-
     orders.forEach((order) => {
       const date = order.createdAt ? new Date(order.createdAt) : now;
       const key = `${date.getFullYear()}-${date.getMonth()}`;
@@ -154,15 +153,12 @@ export default function Dashboard() {
       if (bucket) {
         bucket.revenue += Number(order.totalPrice) || 0;
       } else if (months.length > 0) {
-        // Fallback to current month if order has no date
         months[months.length - 1].revenue += Number(order.totalPrice) || 0;
       }
     });
-
     return months;
   }, [orders]);
 
-  // ───────────────── CHART 1 (ALT): STOCK BY PRODUCT DATA ─────────────────
   const productStockData = useMemo(() => {
     return products.slice(0, 8).map((p) => ({
       name: p.name.length > 12 ? `${p.name.slice(0, 12)}…` : p.name,
@@ -170,30 +166,15 @@ export default function Dashboard() {
     }));
   }, [products]);
 
-  // ───────────────── CHART 2: ORDER STATUS PIE DATA ─────────────────
   const orderStatusData = useMemo(() => {
-    const counts = {
-      Pending: 0,
-      Processing: 0,
-      Shipped: 0,
-      Delivered: 0,
-    };
-
+    const counts = { Pending: 0, Processing: 0, Shipped: 0, Delivered: 0 };
     orders.forEach((order) => {
       const status = order.status || "Pending";
-      if (counts[status] !== undefined) {
-        counts[status] += 1;
-      } else {
-        counts.Pending += 1;
-      }
+      if (counts[status] !== undefined) counts[status] += 1;
+      else counts.Pending += 1;
     });
-
     return Object.entries(counts)
-      .map(([name, value]) => ({
-        name,
-        value,
-        color: STATUS_COLORS[name],
-      }))
+      .map(([name, value]) => ({ name, value, color: STATUS_COLORS[name] }))
       .filter((item) => item.value > 0);
   }, [orders]);
 
@@ -217,7 +198,6 @@ export default function Dashboard() {
 
       {/* ───────────────── KPI CARDS ───────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Total Revenue */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -236,13 +216,12 @@ export default function Dashboard() {
               })}
             </div>
             <p className="mt-1 flex items-center text-xs text-muted-foreground">
-              <ArrowUpRight className="mr-1 h-3 w-3 text-emerald-500" />
-              From {orders.length} total orders
+              <ArrowUpRight className="mr-1 h-3 w-3 text-emerald-500" /> From{" "}
+              {orders.length} orders
             </p>
           </CardContent>
         </Card>
 
-        {/* Total Orders */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -262,7 +241,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Products in Stock */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -286,7 +264,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Active Suppliers */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -309,39 +286,50 @@ export default function Dashboard() {
 
       {/* ───────────────── CHARTS SECTION ───────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Bar Chart Card (Spans 2 columns) */}
+        {/* Toggleable Data Chart (Spans 2 columns) */}
         <Card className="border-border bg-card shadow-sm lg:col-span-2">
           <CardHeader className="flex flex-col gap-3 border-b border-border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                {barView === "revenue"
-                  ? "Monthly Revenue Overview"
-                  : "Inventory Stock by Product"}
+                {chartView === "revenue" ? (
+                  <TrendingUp
+                    className="h-4 w-4"
+                    style={{ color: CHART_COLOR }}
+                  />
+                ) : (
+                  <BarChart3
+                    className="h-4 w-4"
+                    style={{ color: CHART_COLOR }}
+                  />
+                )}
+                {chartView === "revenue"
+                  ? "Monthly Revenue"
+                  : "Stock Levels by Product"}
               </CardTitle>
               <CardDescription>
-                {barView === "revenue"
+                {chartView === "revenue"
                   ? "Revenue generated over the last 6 months."
                   : "Current unit counts across your top products."}
               </CardDescription>
             </div>
 
+            {/* Clickable Toggle Buttons */}
             <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1">
               <Button
                 type="button"
-                variant={barView === "revenue" ? "secondary" : "ghost"}
+                variant={chartView === "revenue" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-7 px-2.5 text-xs"
-                onClick={() => setBarView("revenue")}
+                onClick={() => setChartView("revenue")}
               >
                 Revenue
               </Button>
               <Button
                 type="button"
-                variant={barView === "inventory" ? "secondary" : "ghost"}
+                variant={chartView === "inventory" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-7 px-2.5 text-xs"
-                onClick={() => setBarView("inventory")}
+                onClick={() => setChartView("inventory")}
               >
                 Stock Levels
               </Button>
@@ -351,8 +339,8 @@ export default function Dashboard() {
           <CardContent className="pt-6">
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                {barView === "revenue" ? (
-                  <BarChart
+                {chartView === "revenue" ? (
+                  <LineChart
                     data={monthlyRevenueData}
                     margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                   >
@@ -374,7 +362,10 @@ export default function Dashboard() {
                       tickFormatter={(val) => `$${val}`}
                     />
                     <Tooltip
-                      cursor={{ fill: "rgba(99, 102, 241, 0.08)" }}
+                      cursor={{
+                        stroke: "rgba(148, 163, 184, 0.2)",
+                        strokeWidth: 2,
+                      }}
                       contentStyle={{
                         backgroundColor: "#0f172a",
                         borderColor: "#1e293b",
@@ -383,20 +374,24 @@ export default function Dashboard() {
                         fontSize: "12px",
                       }}
                       formatter={(value) => [
-                        `$${Number(value).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`,
+                        `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                         "Revenue",
                       ]}
                     />
-                    <Bar
+                    <Line
+                      type="monotone"
                       dataKey="revenue"
-                      fill="#6366f1"
-                      radius={[6, 6, 0, 0]}
-                      maxBarSize={48}
+                      stroke={CHART_COLOR}
+                      strokeWidth={3}
+                      dot={{
+                        r: 4,
+                        fill: "hsl(var(--background))",
+                        stroke: CHART_COLOR,
+                        strokeWidth: 2,
+                      }}
+                      activeDot={{ r: 6, fill: CHART_COLOR }}
                     />
-                  </BarChart>
+                  </LineChart>
                 ) : (
                   <BarChart
                     data={
@@ -423,7 +418,7 @@ export default function Dashboard() {
                       tick={{ fill: "#64748b", fontSize: 12 }}
                     />
                     <Tooltip
-                      cursor={{ fill: "rgba(6, 182, 212, 0.08)" }}
+                      cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
                       contentStyle={{
                         backgroundColor: "#0f172a",
                         borderColor: "#1e293b",
@@ -435,7 +430,7 @@ export default function Dashboard() {
                     />
                     <Bar
                       dataKey="stock"
-                      fill="#06b6d4"
+                      fill={CHART_COLOR}
                       radius={[6, 6, 0, 0]}
                       maxBarSize={48}
                     />
@@ -446,7 +441,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Pie Chart Card: Order Fulfillment Status */}
+        {/* Order Status Pie Chart */}
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -455,7 +450,6 @@ export default function Dashboard() {
             </CardTitle>
             <CardDescription>Real-time fulfillment breakdown.</CardDescription>
           </CardHeader>
-
           <CardContent className="flex flex-col items-center justify-center pt-6">
             <div className="h-[230px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -498,8 +492,6 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-
-            {/* Status Legend */}
             <div className="mt-2 grid w-full grid-cols-2 gap-2 border-t border-border pt-4 text-xs">
               {Object.entries(STATUS_COLORS).map(([status, color]) => {
                 const found = orderStatusData.find((s) => s.name === status);
@@ -614,12 +606,10 @@ export default function Dashboard() {
         <Card className="overflow-hidden border-border bg-card shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Low Stock Alerts</CardTitle>
+              <CardTitle className="text-lg">Low Stock</CardTitle>
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </div>
-            <CardDescription>
-              Products with fewer than 15 units remaining.
-            </CardDescription>
+            <CardDescription>Items with fewer than 15 units.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -649,7 +639,7 @@ export default function Dashboard() {
                       colSpan={2}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      All stock levels are healthy.
+                      All stock levels healthy.
                     </TableCell>
                   </TableRow>
                 ) : (
