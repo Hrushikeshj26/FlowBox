@@ -66,3 +66,51 @@ export const deleteSuppliers = async (req, res) => {
       .json({ message: "Failed to delete supplier", error: err.message });
   }
 };
+
+// POST /api/suppliers/bulk
+export const bulkCreateSuppliers = async (req, res) => {
+  try {
+    const { suppliers } = req.body;
+
+    if (!suppliers || !Array.isArray(suppliers) || suppliers.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No suppliers provided for import." });
+    }
+
+    // Process and attach the logged-in user's ID
+    const suppliersToInsert = suppliers
+      .map((item) => {
+        // Basic validation: skip rows missing a name
+        if (!item.name) return null;
+
+        return {
+          user: req.user._id,
+          name: item.name.trim(),
+          contact: item.contact?.trim() || "—",
+          category: item.category?.trim() || "Uncategorized",
+          phone: item.phone?.trim() || "—",
+        };
+      })
+      .filter(Boolean);
+
+    if (suppliersToInsert.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No valid suppliers found in CSV." });
+    }
+
+    // Insert all documents into MongoDB efficiently
+    const insertedSuppliers = await Suppliers.insertMany(suppliersToInsert);
+
+    res.status(201).json({
+      message: `Successfully imported ${insertedSuppliers.length} suppliers.`,
+      data: insertedSuppliers,
+    });
+  } catch (error) {
+    console.error("Bulk Create Suppliers Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to import suppliers.", error: error.message });
+  }
+};

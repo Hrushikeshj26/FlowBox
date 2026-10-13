@@ -94,3 +94,44 @@ export const deleteProduct = async (req, res) => {
       .json({ message: "Failed to delete product", error: error.message });
   }
 };
+
+// POST /api/products/bulk
+export const bulkCreateProducts = async (req, res) => {
+  try {
+    const { products } = req.body;
+
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: "No products provided for import." });
+    }
+
+    // Map through the array to ensure required fields and attach the user ID
+    const productsToInsert = products.map((item) => {
+      // Basic validation: skip items with completely missing core data
+      if (!item.name) return null;
+
+      return {
+        user: req.user._id, // Crucial: Tie bulk items to the logged-in user
+        name: item.name,
+        price: Number(item.price) || 0,
+        stockCount: Number(item.stockCount) || 0,
+        // Optional: If they provided a store ID in the CSV, use it; otherwise null
+        storeId: item.storeId || null, 
+      };
+    }).filter(Boolean); // Remove any nulls from failed validation
+
+    if (productsToInsert.length === 0) {
+       return res.status(400).json({ message: "No valid products found in CSV." });
+    }
+
+    // Insert all documents efficiently in one operation
+    const insertedProducts = await Product.insertMany(productsToInsert);
+
+    res.status(201).json({ 
+      message: `Successfully imported ${insertedProducts.length} products.`, 
+      data: insertedProducts 
+    });
+  } catch (error) {
+    console.error("Bulk Create Error:", error);
+    res.status(500).json({ message: "Failed to import products.", error: error.message });
+  }
+};
