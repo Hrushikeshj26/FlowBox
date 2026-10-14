@@ -271,8 +271,8 @@ export default function Inventory() {
       </div>
 
       {/* ADD PRODUCT CARD */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 pb-4">
+      <Card className="border-border bg-card p-0 overflow-hidden shadow-sm">
+        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
           <CardTitle className="text-lg text-card-foreground">
             Add Product
           </CardTitle>
@@ -280,7 +280,7 @@ export default function Inventory() {
             Add a single item to a specific warehouse location.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="p-2">
           <form
             onSubmit={handleSubmit}
             className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"

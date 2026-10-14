@@ -247,7 +247,7 @@ export default function Warehouses() {
 
       {/* ───────────────── WAREHOUSE TABLE ───────────────── */}
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden p-0">
         <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
           <div>
             <CardTitle className="text-lg">Warehouse Directory</CardTitle>

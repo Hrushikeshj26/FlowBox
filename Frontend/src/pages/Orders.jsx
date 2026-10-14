@@ -225,15 +225,15 @@ export default function Orders() {
       </div>
 
       {/* ───────────────── CREATE ORDER CARD ───────────────── */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 pb-4">
+      <Card className="border-border bg-card overflow-hidden p-0 shadow-sm">
+        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
           <CardTitle className="text-lg">Create New Order</CardTitle>
           <CardDescription>
             Placing an order automatically deducts units from your inventory.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-6">
+        <CardContent className="pt-2">
           <form
             onSubmit={handleCreateOrder}
             className="grid grid-cols-1 items-start gap-4 md:grid-cols-5"

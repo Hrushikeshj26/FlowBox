@@ -249,15 +249,15 @@ export default function Suppliers() {
       </div>
 
       {/* ───────────────── ADD SUPPLIER CARD ───────────────── */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 pb-4">
+      <Card className="border-border bg-card overflow-hidden p-0 shadow-sm">
+        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
           <CardTitle className="text-lg">Add Supplier</CardTitle>
           <CardDescription>
             Register a new vendor to your supply chain directory.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-6">
+        <CardContent className="p-2">
           <form
             onSubmit={handleCreateSupplier}
             className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"

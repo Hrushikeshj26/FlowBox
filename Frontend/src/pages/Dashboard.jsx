@@ -287,7 +287,7 @@ export default function Dashboard() {
       {/* ───────────────── CHARTS SECTION ───────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Toggleable Data Chart (Spans 2 columns) */}
-        <Card className="border-border bg-card shadow-sm lg:col-span-2">
+        <Card className="border-border bg-card overflow-hidden p-0 shadow-sm lg:col-span-2">
           <CardHeader className="flex flex-col gap-3 border-b border-border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -442,16 +442,20 @@ export default function Dashboard() {
         </Card>
 
         {/* Order Status Pie Chart */}
-        <Card className="border-border bg-card shadow-sm">
-          <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
+        <Card className="flex flex-col overflow-hidden p-0 border-border bg-card shadow-sm">
+          <CardHeader className="border-b border-border bg-muted/30 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <PieChartIcon className="h-4 w-4 text-primary" />
               Order Status
             </CardTitle>
-            <CardDescription>Real-time fulfillment breakdown.</CardDescription>
+            <CardDescription className="text-xs">
+              Real-time fulfillment breakdown.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center pt-6">
-            <div className="h-[230px] w-full">
+
+          <CardContent className="flex flex-1 flex-col items-center justify-between p-4">
+            {/* Chart Container - Reduced Height */}
+            <div className="h-[180px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -468,10 +472,11 @@ export default function Dashboard() {
                     }
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={88}
-                    paddingAngle={orderStatusData.length > 1 ? 4 : 0}
+                    innerRadius={55}
+                    outerRadius={75}
+                    paddingAngle={orderStatusData.length > 1 ? 3 : 0}
                     dataKey="value"
+                    stroke="none" // Removes default SVG borders for a seamless look
                   >
                     {(orderStatusData.length > 0
                       ? orderStatusData
@@ -481,32 +486,39 @@ export default function Dashboard() {
                     ))}
                   </Pie>
                   <Tooltip
+                    cursor={false}
                     contentStyle={{
                       backgroundColor: "#0f172a",
                       borderColor: "#1e293b",
-                      borderRadius: "8px",
+                      borderRadius: "6px",
                       color: "#f8fafc",
                       fontSize: "12px",
+                      padding: "6px 10px",
                     }}
+                    itemStyle={{ color: "#f8fafc" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 grid w-full grid-cols-2 gap-2 border-t border-border pt-4 text-xs">
+
+            {/* Compact Data Pills Legend */}
+            <div className="mt-2 grid w-full grid-cols-2 gap-2">
               {Object.entries(STATUS_COLORS).map(([status, color]) => {
                 const found = orderStatusData.find((s) => s.name === status);
                 const count = found ? found.value : 0;
                 return (
                   <div
                     key={status}
-                    className="flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5"
+                    className="flex items-center justify-between rounded-md border border-border/50 bg-muted/20 px-2 py-1.5 text-xs transition-colors hover:bg-muted/40"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <span
-                        className="h-2.5 w-2.5 rounded-full"
+                        className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: color }}
                       />
-                      <span className="text-muted-foreground">{status}</span>
+                      <span className="font-medium text-muted-foreground">
+                        {status}
+                      </span>
                     </div>
                     <span className="font-semibold text-foreground">
                       {count}
@@ -522,7 +534,7 @@ export default function Dashboard() {
       {/* ───────────────── TABLES SECTION ───────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Recent Orders Table */}
-        <Card className="overflow-hidden border-border bg-card shadow-sm lg:col-span-2">
+        <Card className="overflow-hidden p-0 border-border bg-card shadow-sm lg:col-span-2">
           <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
             <CardTitle className="text-lg">Recent Orders</CardTitle>
             <CardDescription>
@@ -603,7 +615,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Low Stock Alerts */}
-        <Card className="overflow-hidden border-border bg-card shadow-sm">
+        <Card className="overflow-hidden p-0 border-border bg-card shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Low Stock</CardTitle>

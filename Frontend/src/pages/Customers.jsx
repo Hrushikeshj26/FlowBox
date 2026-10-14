@@ -196,7 +196,7 @@ export default function Customers() {
       </div>
 
       {/* ───────────────── CUSTOMER DIRECTORY TABLE ───────────────── */}
-      <Card className="overflow-hidden border-border bg-card shadow-sm">
+      <Card className="overflow-hidden border-border bg-card p-0 shadow-sm">
         <CardHeader className="flex flex-col gap-4 border-b border-border bg-muted/30 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-lg">Customer Directory</CardTitle>

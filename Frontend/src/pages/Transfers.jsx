@@ -203,8 +203,8 @@ export default function Transfers() {
       </div>
 
       {/* ───────────────── TRANSFER FORM CARD ───────────────── */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 pb-4">
+      <Card className="border-border bg-card overflow-hidden p-0 shadow-sm">
+        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
           <CardTitle className="text-lg">Initiate Stock Transfer</CardTitle>
           <CardDescription>
             Select an item, choose a destination facility, and specify the
@@ -232,11 +232,12 @@ export default function Transfers() {
 
           <form
             onSubmit={handleTransfer}
-            className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"
+            className="grid grid-cols-1 items-start gap-4 md:grid-cols-4"
           >
             {/* 1. Select Product */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+              {/* Added "block" to the label class below */}
+              <label className="block text-sm font-medium text-foreground">
                 Product to Move
               </label>
               <Select
@@ -275,7 +276,8 @@ export default function Transfers() {
 
             {/* 2. Source Warehouse (Read-Only Indicator) */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+              {/* Added "block" here */}
+              <label className="block text-sm font-medium text-foreground">
                 Origin Warehouse
               </label>
               <Input
@@ -289,7 +291,8 @@ export default function Transfers() {
 
             {/* 3. Destination Warehouse */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+              {/* Added "block" here */}
+              <label className="block text-sm font-medium text-foreground">
                 Destination Warehouse
               </label>
               <Select
@@ -322,7 +325,8 @@ export default function Transfers() {
 
             {/* 4. Quantity + Submit */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+              {/* Added "block" here */}
+              <label className="block text-sm font-medium text-foreground">
                 Quantity
               </label>
               <div className="flex gap-2">
