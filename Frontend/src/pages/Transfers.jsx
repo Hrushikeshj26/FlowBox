@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRightLeft,
@@ -8,6 +8,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // Shadcn Components
@@ -38,10 +40,9 @@ import {
 } from "@/components/ui/table";
 
 const API_PRODUCTS = "http://localhost:5000/api/products";
-const API_WAREHOUSES = "http://localhost:5000/api/warehouses"; // Change to /api/stores if your server.js uses /api/stores
+const API_WAREHOUSES = "http://localhost:5000/api/warehouses";
 const API_TRANSFER = "http://localhost:5000/api/inventory/transfer";
 
-// Helper to get headers with token
 const getAuthHeaders = () => {
   const token = localStorage.getItem("flowbox_token");
   return {
@@ -59,13 +60,16 @@ export default function Transfers() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
   const [formData, setFormData] = useState({
     productId: "",
     targetStoreId: "",
     quantity: "",
   });
 
-  // 1. Fetch logged-in user's products and warehouses
   const fetchTransferData = async () => {
     try {
       const headers = getAuthHeaders();
@@ -96,7 +100,19 @@ export default function Transfers() {
     fetchTransferData();
   }, []);
 
-  // Find currently selected product and its current warehouse
+  // Paginated slice of products for the distribution table
+  const totalPages = Math.ceil(products.length / itemsPerPage) || 1;
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return products.slice(start, start + itemsPerPage);
+  }, [products, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
   const selectedProduct = products.find((p) => p._id === formData.productId);
   const sourceStoreId =
     selectedProduct?.storeId?._id || selectedProduct?.storeId || "";
@@ -105,12 +121,10 @@ export default function Transfers() {
     warehouses.find((w) => w._id === sourceStoreId)?.name ||
     "Unassigned";
 
-  // Filter out the source warehouse from destination options
   const availableTargetWarehouses = warehouses.filter(
     (w) => w._id !== sourceStoreId,
   );
 
-  // 2. Execute stock transfer
   const handleTransfer = async (e) => {
     e.preventDefault();
     setStatusMessage({ type: "", text: "" });
@@ -171,7 +185,6 @@ export default function Transfers() {
         quantity: "",
       });
 
-      // Refresh products and warehouse capacity loads
       await fetchTransferData();
     } catch (error) {
       console.error("Transfer error:", error.message);
@@ -236,7 +249,6 @@ export default function Transfers() {
           >
             {/* 1. Select Product */}
             <div className="space-y-2">
-              {/* Added "block" to the label class below */}
               <label className="block text-sm font-medium text-foreground">
                 Product to Move
               </label>
@@ -274,9 +286,8 @@ export default function Transfers() {
               </Select>
             </div>
 
-            {/* 2. Source Warehouse (Read-Only Indicator) */}
+            {/* 2. Source Warehouse */}
             <div className="space-y-2">
-              {/* Added "block" here */}
               <label className="block text-sm font-medium text-foreground">
                 Origin Warehouse
               </label>
@@ -291,7 +302,6 @@ export default function Transfers() {
 
             {/* 3. Destination Warehouse */}
             <div className="space-y-2">
-              {/* Added "block" here */}
               <label className="block text-sm font-medium text-foreground">
                 Destination Warehouse
               </label>
@@ -325,7 +335,6 @@ export default function Transfers() {
 
             {/* 4. Quantity + Submit */}
             <div className="space-y-2">
-              {/* Added "block" here */}
               <label className="block text-sm font-medium text-foreground">
                 Quantity
               </label>
@@ -403,7 +412,7 @@ export default function Transfers() {
                   </div>
                 </TableCell>
               </TableRow>
-            ) : products.length === 0 ? (
+            ) : paginatedProducts.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={4}
@@ -413,7 +422,7 @@ export default function Transfers() {
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => {
+              paginatedProducts.map((product) => {
                 const storeObj =
                   warehouses.find(
                     (w) => w._id === (product.storeId?._id || product.storeId),
@@ -459,6 +468,58 @@ export default function Transfers() {
             )}
           </TableBody>
         </Table>
+
+        {/* PAGINATION CONTROLS */}
+        {!isLoading && products.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border bg-muted/20 px-6 py-3">
+            <p className="text-xs text-muted-foreground">
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(
+                  (currentPage - 1) * itemsPerPage + 1,
+                  products.length,
+                )}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(currentPage * itemsPerPage, products.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {products.length}
+              </span>{" "}
+              items
+            </p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+              </Button>
+
+              <span className="text-xs font-medium text-foreground px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="h-8 px-3 text-xs"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
