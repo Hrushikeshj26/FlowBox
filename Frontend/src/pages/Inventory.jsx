@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import {
@@ -10,6 +10,9 @@ import {
   UploadCloud,
   Download,
   Loader2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // Shadcn Components
@@ -38,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 
 const API_PRODUCTS = "http://localhost:5000/api/products";
 const API_WAREHOUSES = "http://localhost:5000/api/warehouses";
@@ -52,13 +56,18 @@ const getAuthHeaders = () => {
 
 export default function Inventory() {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null); // Reference for the hidden file input
+  const fileInputRef = useRef(null);
 
   const [importStoreId, setImportStoreId] = useState("");
   const [products, setProducts] = useState([]);
   const [stores, setStores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Search & Pagination State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -92,11 +101,45 @@ export default function Inventory() {
     fetchData();
   }, []);
 
+  // 1. Filter products based on live search query
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const query = searchQuery.toLowerCase();
+    return products.filter((p) => {
+      const storeName =
+        p.storeId?.name || stores.find((s) => s._id === p.storeId)?.name || "";
+      return (
+        p.name?.toLowerCase().includes(query) ||
+        p.sku?.toLowerCase().includes(query) ||
+        storeName.toLowerCase().includes(query)
+      );
+    });
+  }, [products, stores, searchQuery]);
+
+  // 2. Paginate the filtered results
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, currentPage]);
+
+  // Reset to page 1 whenever search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Keep pagination in bounds if items are deleted or filtered
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
   // Standard Single Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.storeId) {
-      alert("Please select a warehouse location.");
+      toast.error("Please select a warehouse location.");
       return;
     }
 
@@ -116,9 +159,10 @@ export default function Inventory() {
       if (!response.ok) throw new Error("Failed to create product");
 
       setFormData({ name: "", price: "", stockCount: "", storeId: "" });
+      toast.success("Product added successfully!");
       fetchData();
     } catch (error) {
-      alert(error.message);
+      toast.error(error.message);
     }
   };
 
@@ -133,6 +177,7 @@ export default function Inventory() {
       if (response.status === 401) return navigate("/login");
       if (response.ok) {
         setProducts((prev) => prev.filter((p) => p._id !== productId));
+        toast.success("Product deleted successfully.");
       }
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -140,13 +185,10 @@ export default function Inventory() {
   };
 
   // ───────────────── CSV IMPORT LOGIC ─────────────────
-
-  // 1. Trigger the hidden file input
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
 
-  // 2. Download a sample CSV so users know the required columns
   const downloadTemplate = () => {
     const csvContent =
       "data:text/csv;charset=utf-8,name,price,stockCount\nExample Product,19.99,150";
@@ -159,15 +201,13 @@ export default function Inventory() {
     link.remove();
   };
 
-  // 3. Handle the file selection and parsing
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate that they selected a warehouse first!
     if (!importStoreId) {
-      alert("Please select a destination warehouse before importing.");
-      fileInputRef.current.value = ""; // reset input
+      toast.error("Please select a destination warehouse before importing.");
+      fileInputRef.current.value = "";
       return;
     }
 
@@ -182,7 +222,7 @@ export default function Inventory() {
             name: row.name?.trim(),
             price: Number(row.price) || 0,
             stockCount: Number(row.stockCount) || 0,
-            storeId: importStoreId, // <--- Attach the selected warehouse here!
+            storeId: importStoreId,
           }));
 
           const response = await fetch(`${API_PRODUCTS}/bulk`, {
@@ -196,17 +236,17 @@ export default function Inventory() {
           const data = await response.json();
           if (!response.ok) throw new Error(data.message);
 
-          alert(data.message);
+          toast.success(data.message || "CSV imported successfully!");
           fetchData();
         } catch (error) {
-          alert(`Import failed: ${error.message}`);
+          toast.error(`Import failed: ${error.message}`);
         } finally {
           setIsUploading(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
         }
       },
       error: () => {
-        alert("Error reading CSV file.");
+        toast.error("Error reading CSV file.");
         setIsUploading(false);
       },
     });
@@ -227,9 +267,7 @@ export default function Inventory() {
         </div>
 
         {/* CSV Action Buttons */}
-        {/* CSV Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* 1. Select Destination Warehouse */}
           <Select value={importStoreId} onValueChange={setImportStoreId}>
             <SelectTrigger className="w-[180px] h-9">
               <SelectValue placeholder="Import to warehouse..." />
@@ -243,13 +281,11 @@ export default function Inventory() {
             </SelectContent>
           </Select>
 
-          {/* 2. Download Template */}
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
             <Download className="w-4 h-4 mr-2" />
             Template
           </Button>
 
-          {/* 3. Upload Button */}
           <Button size="sm" onClick={triggerFileInput} disabled={isUploading}>
             {isUploading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -259,7 +295,6 @@ export default function Inventory() {
             {isUploading ? "Importing..." : "Import CSV"}
           </Button>
 
-          {/* Hidden File Input */}
           <input
             type="file"
             accept=".csv"
@@ -280,12 +315,11 @@ export default function Inventory() {
             Add a single item to a specific warehouse location.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-4">
           <form
             onSubmit={handleSubmit}
             className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"
           >
-            {/* Same form as before */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 Product Name
@@ -366,8 +400,32 @@ export default function Inventory() {
         </CardContent>
       </Card>
 
-      {/* PRODUCT TABLE */}
+      {/* PRODUCT TABLE & SEARCH CONTAINER */}
       <Card className="overflow-hidden border-border bg-card p-0 shadow-sm">
+        {/* Live Search Bar Header */}
+        <div className="flex items-center justify-between border-b border-border bg-muted/20 px-6 py-3">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search by product name, SKU, or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 bg-background text-sm"
+            />
+          </div>
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery("")}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear filter
+            </Button>
+          )}
+        </div>
+
         <Table>
           <TableHeader className="border-b border-border bg-muted/70 dark:bg-muted/40">
             <TableRow className="hover:bg-transparent">
@@ -398,17 +456,19 @@ export default function Inventory() {
                   <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
                 </TableCell>
               </TableRow>
-            ) : products.length === 0 ? (
+            ) : paginatedProducts.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No products found. Add one above or import a CSV.
+                  {searchQuery
+                    ? `No products matching "${searchQuery}".`
+                    : "No products found. Add one above or import a CSV."}
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => {
+              paginatedProducts.map((product) => {
                 const storeName =
                   product.storeId?.name ||
                   stores.find((store) => store._id === product.storeId)?.name ||
@@ -463,6 +523,60 @@ export default function Inventory() {
             )}
           </TableBody>
         </Table>
+
+        {/* PAGINATION FOOTER CONTROLS */}
+        {!isLoading && filteredProducts.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border bg-muted/20 px-6 py-3">
+            <p className="text-xs text-muted-foreground">
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(
+                  (currentPage - 1) * itemsPerPage + 1,
+                  filteredProducts.length,
+                )}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredProducts.length}
+              </span>{" "}
+              filtered products
+              {filteredProducts.length !== products.length &&
+                ` (from ${products.length} total)`}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+              </Button>
+
+              <span className="text-xs font-medium text-foreground px-2">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="h-8 px-3 text-xs"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
