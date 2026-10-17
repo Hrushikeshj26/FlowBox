@@ -34,6 +34,7 @@ export default function App() {
         <Route path="/auth" element={<Auth />} />
         <Route path="/login" element={<Auth />} />
         <Route path="/signup" element={<Auth />} />
+        <Route path="/register" element={<Auth />} />
       </Route>
 
       {/* ─── PROTECTED ROUTES (Logged-In Users Only) ─── */}
