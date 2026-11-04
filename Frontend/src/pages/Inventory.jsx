@@ -11,8 +11,11 @@ import {
   Download,
   Loader2,
   Search,
+  Filter,
   ChevronLeft,
   ChevronRight,
+  Building2,
+  FileX2,
 } from "lucide-react";
 
 // Shadcn Components
@@ -54,6 +57,12 @@ const getAuthHeaders = () => {
   };
 };
 
+const formatCurrency = (value) =>
+  `$${(Number(value) || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 export default function Inventory() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -64,8 +73,9 @@ export default function Inventory() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Search & Pagination State
+  // Search, Filter & Pagination State
   const [searchQuery, setSearchQuery] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
@@ -101,20 +111,24 @@ export default function Inventory() {
     fetchData();
   }, []);
 
-  // 1. Filter products based on live search query
+  // 1. Filter products based on search query and warehouse filter
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products;
-    const query = searchQuery.toLowerCase();
     return products.filter((p) => {
+      const storeId = p.storeId?._id || p.storeId;
       const storeName =
-        p.storeId?.name || stores.find((s) => s._id === p.storeId)?.name || "";
-      return (
-        p.name?.toLowerCase().includes(query) ||
-        p.sku?.toLowerCase().includes(query) ||
-        storeName.toLowerCase().includes(query)
-      );
+        p.storeId?.name || stores.find((s) => s._id === storeId)?.name || "";
+
+      const matchesSearch =
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        storeName.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesWarehouse =
+        warehouseFilter === "All" || storeId === warehouseFilter;
+
+      return matchesSearch && matchesWarehouse;
     });
-  }, [products, stores, searchQuery]);
+  }, [products, stores, searchQuery, warehouseFilter]);
 
   // 2. Paginate the filtered results
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
@@ -123,12 +137,11 @@ export default function Inventory() {
     return filteredProducts.slice(start, start + itemsPerPage);
   }, [filteredProducts, currentPage]);
 
-  // Reset to page 1 whenever search query changes
+  // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, warehouseFilter]);
 
-  // Keep pagination in bounds if items are deleted or filtered
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(totalPages);
@@ -167,7 +180,11 @@ export default function Inventory() {
   };
 
   const handleDelete = async (productId) => {
-    if (!window.confirm("Are you sure you want to delete this product?"))
+    if (
+      !window.confirm(
+        "Are you sure you want to permanently delete this product?",
+      )
+    )
       return;
     try {
       const response = await fetch(`${API_PRODUCTS}/${productId}`, {
@@ -253,104 +270,129 @@ export default function Inventory() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER WITH IMPORT ACTIONS */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
-        <div className="flex flex-col gap-1">
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-foreground">
-            <PackageSearch className="h-7 w-7 text-primary" />
-            Inventory
-          </h1>
+    <div className="mx-auto max-w-[1600px] space-y-8 pb-12 pt-2">
+      {/* ───────────────── HEADER & CSV ACTIONS ───────────────── */}
+      <div className="flex flex-col justify-between gap-4 border-b border-border/65 pb-6 lg:flex-row lg:items-end">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <PackageSearch className="h-4 w-4" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Inventory Catalog
+            </h1>
+          </div>
           <p className="text-sm text-muted-foreground">
-            Manage your product catalog, stock levels, and storage locations.
+            Manage your global product catalog, track stock levels, and
+            provision new items.
           </p>
         </div>
 
         {/* CSV Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={importStoreId} onValueChange={setImportStoreId}>
-            <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="Import to warehouse..." />
-            </SelectTrigger>
-            <SelectContent>
-              {stores.map((store) => (
-                <SelectItem key={store._id} value={store._id}>
-                  {store.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-lg border border-border/50">
+            <Select value={importStoreId} onValueChange={setImportStoreId}>
+              <SelectTrigger className="h-9 w-[180px] bg-background border-border/70 shadow-sm text-xs">
+                <SelectValue placeholder="Target warehouse..." />
+              </SelectTrigger>
+              <SelectContent>
+                {stores.map((store) => (
+                  <SelectItem key={store._id} value={store._id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Button variant="outline" size="sm" onClick={downloadTemplate}>
-            <Download className="w-4 h-4 mr-2" />
-            Template
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadTemplate}
+              className="h-9 shadow-sm text-xs px-3"
+            >
+              <Download className="w-3.5 h-3.5 mr-1.5" />
+              Template
+            </Button>
 
-          <Button size="sm" onClick={triggerFileInput} disabled={isUploading}>
-            {isUploading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <UploadCloud className="w-4 h-4 mr-2" />
-            )}
-            {isUploading ? "Importing..." : "Import CSV"}
-          </Button>
-
-          <input
-            type="file"
-            accept=".csv"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+            <Button
+              size="sm"
+              onClick={triggerFileInput}
+              disabled={isUploading}
+              className="h-9 shadow-sm text-xs px-4"
+            >
+              {isUploading ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <UploadCloud className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {isUploading ? "Importing..." : "Bulk Import"}
+            </Button>
+            <input
+              type="file"
+              accept=".csv"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </div>
         </div>
       </div>
 
-      {/* ADD PRODUCT CARD */}
-      <Card className="border-border bg-card p-0 overflow-hidden shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 px-6 py-4">
-          <CardTitle className="text-lg text-card-foreground">
-            Add Product
+      {/* ───────────────── ADD PRODUCT CARD ───────────────── */}
+      <Card className="overflow-hidden border-border/70 bg-card shadow-sm transition-all hover:shadow-md">
+        <CardHeader className="border-b border-border/50 bg-muted/20 px-6 py-4">
+          <CardTitle className="text-base font-bold">
+            Add Single Product
           </CardTitle>
-          <CardDescription>
-            Add a single item to a specific warehouse location.
+          <CardDescription className="text-xs">
+            Manually register a new item to a specific facility.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="px-6 py-6">
           <form
             onSubmit={handleSubmit}
-            className="grid grid-cols-1 items-end gap-4 md:grid-cols-4"
+            className="grid grid-cols-1 gap-5 md:grid-cols-12 items-end"
           >
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+            <div className="space-y-2 md:col-span-4">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
                 Product Name
               </label>
               <Input
                 required
-                placeholder="Product name"
+                placeholder="e.g. Industrial Servo Motor"
                 value={formData.name}
+                className="h-10 bg-background/50"
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Price
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Unit Price
               </label>
-              <Input
-                required
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={formData.price}
-                onChange={(e) =>
-                  setFormData({ ...formData, price: e.target.value })
-                }
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                  $
+                </span>
+                <Input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  className="h-10 pl-7 bg-background/50"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: e.target.value })
+                  }
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
                 Stock Count
               </label>
               <Input
@@ -358,226 +400,272 @@ export default function Inventory() {
                 type="number"
                 min="0"
                 placeholder="0"
+                className="h-10 bg-background/50"
                 value={formData.stockCount}
                 onChange={(e) =>
                   setFormData({ ...formData, stockCount: e.target.value })
                 }
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
-                Location
+
+            <div className="space-y-2 md:col-span-3">
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                Storage Node
               </label>
-              <div className="flex gap-2">
-                <Select
-                  required
-                  value={formData.storeId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, storeId: value })
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select warehouse..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map((store) => (
-                      <SelectItem key={store._id} value={store._id}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="shrink-0 shadow-sm"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <Select
+                required
+                value={formData.storeId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, storeId: value })
+                }
+              >
+                <SelectTrigger className="h-10 w-full bg-background/50">
+                  <SelectValue placeholder="Assign warehouse..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store._id} value={store._id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:col-span-1 flex justify-end">
+              <Button
+                type="submit"
+                size="icon"
+                className="h-10 w-10 shrink-0 shadow-sm"
+                title="Add Product"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      {/* PRODUCT TABLE & SEARCH CONTAINER */}
-      <Card className="overflow-hidden border-border bg-card p-0 shadow-sm">
-        {/* Live Search Bar Header */}
-        <div className="flex items-center justify-between border-b border-border bg-muted/20 px-6 py-3">
-          <div className="relative w-full max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      {/* ───────────────── PRODUCT TABLE DIRECTORY ───────────────── */}
+      <div className="space-y-4">
+        {/* TOOLBAR */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              type="text"
-              placeholder="Search by product name, SKU, or location..."
+              placeholder="Search by name, SKU, or location..."
+              className="pl-9 h-10 w-full bg-card shadow-sm border-border/70"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 bg-background text-sm"
             />
           </div>
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSearchQuery("")}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Clear filter
-            </Button>
-          )}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Filter className="h-4 w-4" /> View:
+            </div>
+            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+              <SelectTrigger className="h-10 w-[160px] bg-card border-border/70 shadow-sm">
+                <SelectValue placeholder="All Locations" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Locations</SelectItem>
+                {stores.map((store) => (
+                  <SelectItem key={store._id} value={store._id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <Table>
-          <TableHeader className="border-b border-border bg-muted/70 dark:bg-muted/40">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[300px] font-semibold text-foreground">
-                Product Name
-              </TableHead>
-              <TableHead className="font-semibold text-foreground">
-                Price
-              </TableHead>
-              <TableHead className="font-semibold text-foreground">
-                Stock
-              </TableHead>
-              <TableHead className="font-semibold text-foreground">
-                Location
-              </TableHead>
-              <TableHead className="text-right font-semibold text-foreground">
-                Actions
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
-                </TableCell>
-              </TableRow>
-            ) : paginatedProducts.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  {searchQuery
-                    ? `No products matching "${searchQuery}".`
-                    : "No products found. Add one above or import a CSV."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedProducts.map((product) => {
-                const storeName =
-                  product.storeId?.name ||
-                  stores.find((store) => store._id === product.storeId)?.name ||
-                  "Unassigned";
+        {/* TABLE CARD */}
+        <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/40 border-b border-border/50">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-12 pl-6 text-xs font-bold uppercase tracking-wider w-[350px]">
+                    Product Details
+                  </TableHead>
+                  <TableHead className="h-12 text-xs font-bold uppercase tracking-wider">
+                    Unit Value
+                  </TableHead>
+                  <TableHead className="h-12 text-xs font-bold uppercase tracking-wider">
+                    Availability
+                  </TableHead>
+                  <TableHead className="h-12 text-xs font-bold uppercase tracking-wider">
+                    Assigned Node
+                  </TableHead>
+                  <TableHead className="h-12 pr-6 text-right text-xs font-bold uppercase tracking-wider">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-                return (
-                  <TableRow
-                    key={product._id}
-                    className="transition-colors hover:bg-muted/40"
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                          <Package className="h-4 w-4" />
-                        </div>
-                        <span className="font-medium text-foreground">
-                          {product.name}
-                        </span>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-64 text-center">
+                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                        <p className="text-sm font-medium">
+                          Loading catalog...
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="font-medium text-foreground">
-                      $
-                      {(product.price || 0).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {product.stockCount} units
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        <span>{storeName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(product._id)}
-                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                ) : paginatedProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-64 text-center">
+                      <div className="flex flex-col items-center justify-center text-muted-foreground">
+                        <FileX2 className="h-10 w-10 mb-4 opacity-50" />
+                        <p className="text-sm font-medium text-foreground">
+                          No products found
+                        </p>
+                        <p className="text-xs mt-1">
+                          Adjust your filters or add new stock.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedProducts.map((product) => {
+                    const storeName =
+                      product.storeId?.name ||
+                      stores.find((s) => s._id === product.storeId)?.name ||
+                      "Unassigned";
+                    const stock = Number(product.stockCount) || 0;
 
-        {/* PAGINATION FOOTER CONTROLS */}
-        {!isLoading && filteredProducts.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border bg-muted/20 px-6 py-3">
-            <p className="text-xs text-muted-foreground">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {Math.min(
-                  (currentPage - 1) * itemsPerPage + 1,
-                  filteredProducts.length,
+                    // Dynamic Stock Styling
+                    let stockVariant = "secondary";
+                    let stockStyles = "";
+                    if (stock === 0) {
+                      stockVariant = "outline";
+                      stockStyles =
+                        "border-destructive/30 bg-destructive/10 text-destructive";
+                    } else if (stock < 15) {
+                      stockVariant = "outline";
+                      stockStyles =
+                        "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-500";
+                    }
+
+                    return (
+                      <TableRow
+                        key={product._id}
+                        className="transition-colors hover:bg-muted/30"
+                      >
+                        <TableCell className="py-4 pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-muted/50 text-muted-foreground shrink-0">
+                              <Package className="h-4 w-4" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-sm text-foreground">
+                                {product.name}
+                              </span>
+                              {product.sku && (
+                                <span className="text-xs font-mono text-muted-foreground mt-0.5">
+                                  {product.sku}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="py-4">
+                          <span className="font-bold text-sm tabular-nums text-foreground">
+                            {formatCurrency(product.price)}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="py-4">
+                          <Badge
+                            variant={stockVariant}
+                            className={`px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${stockStyles}`}
+                          >
+                            {stock} units
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="py-4">
+                          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                            <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                            <span>{storeName}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="py-4 pr-6 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(product._id)}
+                            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-foreground">
-                {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">
-                {filteredProducts.length}
-              </span>{" "}
-              filtered products
-              {filteredProducts.length !== products.length &&
-                ` (from ${products.length} total)`}
-            </p>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="h-8 px-3 text-xs"
-              >
-                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
-              </Button>
-
-              <span className="text-xs font-medium text-foreground px-2">
-                Page {currentPage} of {totalPages}
-              </span>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className="h-8 px-3 text-xs"
-              >
-                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            </div>
+              </TableBody>
+            </Table>
           </div>
-        )}
-      </Card>
+
+          {/* PAGINATION FOOTER */}
+          {!isLoading && filteredProducts.length > 0 && (
+            <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-6 py-4">
+              <div className="text-xs font-medium text-muted-foreground">
+                Showing{" "}
+                <span className="font-bold text-foreground">
+                  {(currentPage - 1) * itemsPerPage + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-bold text-foreground">
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    filteredProducts.length,
+                  )}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-foreground">
+                  {filteredProducts.length}
+                </span>{" "}
+                items
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-xs font-semibold px-2">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

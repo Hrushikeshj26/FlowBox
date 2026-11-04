@@ -12,6 +12,7 @@ import Orders from "./pages/Orders";
 import Suppliers from "./pages/Suppliers";
 import Customers from "./pages/Customers";
 import Transfers from "./pages/Transfers";
+import Settings from "./pages/Settings";
 
 // 1. Guard for Main App Pages (Only accessible when LOGGED IN)
 const ProtectedRoute = () => {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="transfers" element={<Transfers />} />
           <Route path="customers" element={<Customers />} />
           <Route path="suppliers" element={<Suppliers />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Route>
 

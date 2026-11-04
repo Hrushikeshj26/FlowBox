@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   PackageSearch,
@@ -9,11 +9,11 @@ import {
   Box,
   ArrowRightLeft,
   Users,
+  Settings as SettingsIcon,
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
   Moon,
-  LogOut,
 } from "lucide-react";
 
 import { useTheme } from "./ThemeProvider";
@@ -21,8 +21,30 @@ import { useTheme } from "./ThemeProvider";
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
+  const [brand, setBrand] = useState({ name: "FlowBox", logo: "" });
 
+  const fetchBranding = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        setBrand({
+          name: data.companyName || "FlowBox",
+          logo: data.companyLogo || "",
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load branding:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranding();
+    window.addEventListener("settingsUpdated", fetchBranding);
+    return () => window.removeEventListener("settingsUpdated", fetchBranding);
+  }, []);
+
+  // Main navigation items (Settings removed from here)
   const navItems = [
     { name: "Dashboard", path: "/", icon: LayoutDashboard },
     { name: "Inventory", path: "/inventory", icon: PackageSearch },
@@ -33,39 +55,53 @@ export default function Sidebar() {
     { name: "Suppliers", path: "/suppliers", icon: Truck },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem("flowbox_token");
-    localStorage.removeItem("flowbox_user");
-    navigate("/auth");
-  };
-
   return (
     <aside
       className={`sticky top-0 h-screen flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out z-20 ${
         isCollapsed ? "w-20" : "w-64"
       }`}
     >
+      {/* DYNAMIC BRANDING HEADER */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border">
         <div
-          className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ${isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"}`}
+          className={`flex items-center gap-2.5 overflow-hidden transition-all duration-300 ${
+            isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+          }`}
         >
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
-            <Box className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-foreground whitespace-nowrap">
-            FlowBox
+          {brand.logo ? (
+            <img
+              src={brand.logo}
+              alt={brand.name}
+              className="h-8 w-8 rounded-lg object-contain bg-muted p-0.5 shrink-0"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
+              <Box className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
+          <span className="font-bold text-xl tracking-tight text-foreground whitespace-nowrap truncate">
+            {brand.name}
           </span>
         </div>
 
         {isCollapsed && (
           <div className="w-full flex justify-center">
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
-              <Box className="h-5 w-5 text-primary-foreground" />
-            </div>
+            {brand.logo ? (
+              <img
+                src={brand.logo}
+                alt={brand.name}
+                className="h-8 w-8 rounded-lg object-contain bg-muted p-0.5 shrink-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary shrink-0">
+                <Box className="h-5 w-5 text-primary-foreground" />
+              </div>
+            )}
           </div>
         )}
       </div>
 
+      {/* NAVIGATION LINKS */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -77,21 +113,39 @@ export default function Sidebar() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium ${
                   isActive
-                    ? "bg-primary/10 border-2 border-slate-300 dark:border-slate-600 text-primary"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 } ${isCollapsed ? "justify-center" : "justify-start"}`
               }
             >
               <Icon className="h-5 w-5 shrink-0" />
               {!isCollapsed && (
-                <span className="whitespace-nowrap text-sm">{item.name}</span>
+                <span className="whitespace-nowrap">{item.name}</span>
               )}
             </NavLink>
           );
         })}
       </div>
 
-      <div className="p-3 border-t border-border flex flex-col gap-2">
+      {/* BOTTOM ACTIONS (Settings moved here) */}
+      <div className="p-3 border-t border-border flex flex-col gap-1">
+        {/* Settings Link */}
+        <NavLink
+          to="/settings"
+          title={isCollapsed ? "Settings" : ""}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium ${
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            } ${isCollapsed ? "justify-center" : "justify-start"}`
+          }
+        >
+          <SettingsIcon className="h-5 w-5 shrink-0" />
+          {!isCollapsed && <span className="whitespace-nowrap">Settings</span>}
+        </NavLink>
+
+        {/* Dark Mode Toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors ${
@@ -105,22 +159,12 @@ export default function Sidebar() {
           )}
           {!isCollapsed && (
             <span className="whitespace-nowrap font-medium text-sm">
-              Light Mode
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
             </span>
           )}
         </button>
 
-        <button
-          onClick={handleLogout}
-          title={isCollapsed ? "Logout" : ""}
-          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 ${
-            isCollapsed ? "justify-center px-0" : ""
-          }`}
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!isCollapsed && <span>Logout</span>}
-        </button>
-
+        {/* Minimize Menu Toggle */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors ${
