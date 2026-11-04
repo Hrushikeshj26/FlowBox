@@ -12,6 +12,7 @@ import suppliersRoutes from "./routes/suppliersRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import warehouseRoutes from "./routes/storeRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
@@ -22,6 +23,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Increase payload limit for image uploads (replace your existing app.use(express.json()))
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
 app.use("/api/stores", storeRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -29,6 +34,7 @@ app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/warehouses", warehouseRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ message: "FlowBox API is running smoothly....." });
