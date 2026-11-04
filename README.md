@@ -11,7 +11,9 @@ A modern B2B inventory and multi-warehouse supply chain management SaaS built wi
 
 [Live Demo- Available Soon....](#) · [Portfolio](https://hrushijdev.vercel.app/)
 
----
+## 🚀 Dashboard Overview
+
+## ![FlowBox Dashboard Overview](./Frontend/src/assets/dashboard.png)
 
 ## ✨ Features
 
